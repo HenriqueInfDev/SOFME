@@ -135,31 +135,34 @@ class ItemSearchWindow(QWidget):
             items = [item for item in items if item['TIPO_ITEM'] in self.item_type_filter]
             
         for item in items:
-            id_item = QStandardItem(str(item['ID']))
-            id_item.setData(item['ID'], Qt.DisplayRole)
+            # Convert sqlite3.Row to dict if needed
+            item_dict = dict(item) if hasattr(item, 'keys') else item
+            
+            id_item = QStandardItem(str(item_dict['ID']))
+            id_item.setData(item_dict['ID'], Qt.DisplayRole)
 
-            qty_item = QStandardItem(f"{item['SALDO_ESTOQUE']:.2f}" if item['SALDO_ESTOQUE'] is not None else "")
-            cost_item = QStandardItem(f"{item['CUSTO_MEDIO']:.2f}" if item['CUSTO_MEDIO'] is not None else "")
+            qty_item = QStandardItem(f"{item_dict['SALDO_ESTOQUE']:.2f}" if item_dict['SALDO_ESTOQUE'] is not None else "")
+            cost_item = QStandardItem(f"{item_dict['CUSTO_MEDIO']:.2f}" if item_dict['CUSTO_MEDIO'] is not None else "")
 
             row = [
                 id_item,
-                QStandardItem(item['DESCRICAO']),
-                QStandardItem(item['CODIGO_INTERNO'] or ""),
-                QStandardItem(item['TIPO_ITEM']),
-                QStandardItem(item['SIGLA'].upper()),
+                QStandardItem(item_dict['DESCRICAO']),
+                QStandardItem(item_dict['CODIGO_INTERNO'] or ""),
+                QStandardItem(item_dict['TIPO_ITEM']),
+                QStandardItem(item_dict['SIGLA'].upper()),
                 qty_item,
                 cost_item
             ]
             self.table_model.appendRow(row)
 
             full_item_data = {
-                'ID': item['ID'],
-                'DESCRICAO': item['DESCRICAO'],
-                'CODIGO_INTERNO': item.get('CODIGO_INTERNO'),
-                'TIPO_ITEM': item['TIPO_ITEM'],
-                'SIGLA': item['SIGLA'],
-                'SALDO_ESTOQUE': item['SALDO_ESTOQUE'],
-                'CUSTO_MEDIO': item['CUSTO_MEDIO']
+                'ID': item_dict['ID'],
+                'DESCRICAO': item_dict['DESCRICAO'],
+                'CODIGO_INTERNO': item_dict['CODIGO_INTERNO'],
+                'TIPO_ITEM': item_dict['TIPO_ITEM'],
+                'SIGLA': item_dict['SIGLA'],
+                'SALDO_ESTOQUE': item_dict['SALDO_ESTOQUE'],
+                'CUSTO_MEDIO': item_dict['CUSTO_MEDIO']
             }
             self.table_model.item(self.table_model.rowCount() - 1, 0).setData(full_item_data, Qt.UserRole)
 
