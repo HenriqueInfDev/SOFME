@@ -4,7 +4,8 @@ from PySide6.QtWidgets import (
     QPushButton, QMessageBox, QHeaderView, QTableWidget, QTableWidgetItem,
     QLabel, QDateEdit, QAbstractItemView, QDateTimeEdit
 )
-from PySide6.QtCore import QDate, Qt, QDateTime, QEvent
+from PySide6.QtCore import QDate, Qt, QDateTime, QEvent, QRegularExpression
+from PySide6.QtGui import QRegularExpressionValidator
 from app.stock.service import StockService
 from app.supplier.service import SupplierService
 from app.utils.date_utils import BRAZILIAN_DATE_FORMAT, format_qdate_for_db, format_qdatetime_for_db
@@ -12,7 +13,7 @@ from app.item.ui_search_window import ItemSearchWindow
 from app.supplier.ui_search_window import SupplierSearchWindow
 from app.utils.ui_utils import (
     NumericTableWidgetItem, show_error_message, show_success_message, 
-    show_confirmation_message, show_warning_message
+    show_confirmation_message, show_warning_message, configure_table_columns
 )
 from PySide6.QtWidgets import QStyledItemDelegate
 
@@ -23,8 +24,35 @@ from app.styles.windows_style import (
     window_style, LIGHT
 )
 from app.styles.input_styles import (
-    input_style, input_date_style, DEFAULTINPUT
+    input_style, input_date_style, table_editor_style, DEFAULTINPUT
 )
+
+class NumericDelegate(QStyledItemDelegate):
+    """Delegate para editar valores numéricos diretamente na tabela."""
+    def __init__(self, parent=None, decimals=2):
+        super().__init__(parent)
+        self.decimals = decimals
+
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        regex = QRegularExpression(r"^\d{0,12}([.,]\d{0,%d})?$" % self.decimals)
+        validator = QRegularExpressionValidator(regex, editor)
+        editor.setValidator(validator)
+        editor.setStyleSheet(table_editor_style(DEFAULTINPUT))
+        editor.setAlignment(Qt.AlignRight)
+        return editor
+
+    def setEditorData(self, editor, index):
+        text = index.model().data(index, Qt.DisplayRole)
+        if text is None:
+            text = ""
+        editor.setText(str(text))
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.text(), Qt.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
 
 class SupplierDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
@@ -124,11 +152,17 @@ class EntryEditWindow(QWidget):
         self.items_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.items_table.setColumnHidden(0, True)
         header = self.items_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setStretchLastSection(False)
 
         self.supplier_delegate = SupplierDelegate(self.items_table)
         self.items_table.setItemDelegateForColumn(2, self.supplier_delegate)
+        
+        # Usar delegate numérico para as colunas editáveis de quantidade e valores
+        self.numeric_delegate = NumericDelegate(self.items_table)
+        self.items_table.setItemDelegateForColumn(3, self.numeric_delegate)  # Quantidade
+        self.items_table.setItemDelegateForColumn(5, self.numeric_delegate)  # Valor Unit.
+        self.items_table.setItemDelegateForColumn(6, self.numeric_delegate)  # Valor Total
         
         self.items_table.cellChanged.connect(self.on_cell_changed)
         items_layout.addWidget(self.items_table)
@@ -227,6 +261,8 @@ class EntryEditWindow(QWidget):
         
         is_finalizada = master['STATUS'] == 'Finalizada'
         self.set_read_only(is_finalizada)
+        # Adjust table columns to fit content
+        self.adjust_table_columns()
 
     def open_supplier_search_for_item(self, row):
         self.current_editing_row = row
@@ -421,10 +457,6 @@ class EntryEditWindow(QWidget):
                 show_error_message(self, "Erro", response["message"])
         
     def finalize_entry(self):
-        # Validações
-        if not self.note_number_input.text().strip():
-            show_error_message(self, "Erro de Validação", "O campo 'Número da Nota' é obrigatório.")
-            return
 
         if self.items_table.rowCount() == 0:
             show_error_message(self, "Erro de Validação", "Adicione pelo menos um insumo à nota antes de finalizar.")
@@ -463,3 +495,19 @@ class EntryEditWindow(QWidget):
                 self.load_entry_data()
             else:
                 show_error_message(self, "Error", response["message"])
+    
+    def adjust_table_columns(self):
+        """Ajusta as larguras das colunas da tabela de itens."""
+        if self.items_table.model() is None:
+            return
+        configure_table_columns(self.items_table, total_width=self.items_table.viewport().width())
+    
+    def showEvent(self, event):
+        """Ajusta colunas quando a janela é exibida."""
+        super().showEvent(event)
+        self.adjust_table_columns()
+    
+    def resizeEvent(self, event):
+        """Reajusta colunas quando a janela é redimensionada."""
+        super().resizeEvent(event)
+        self.adjust_table_columns()

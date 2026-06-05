@@ -6,8 +6,8 @@ class StockService:
         self.stock_repository = StockRepository()
 
     def create_entry(self, entry_date, typing_date, note_number, observacao):
-        if not all([entry_date, typing_date, note_number]):
-            return {"success": False, "message": "Todos os campos do cabeçalho são obrigatórios."}
+        if not all([entry_date, typing_date]):
+            return {"success": False, "message": "Data de entrada e data de digitação são obrigatórias."}
         
         try:
             entry_id = self.stock_repository.create_entry(entry_date, typing_date, note_number, observacao)
@@ -19,8 +19,8 @@ class StockService:
             return {"success": False, "message": f"Erro inesperado: {e}"}
 
     def update_entry(self, entry_id, entry_date, typing_date, note_number, observacao, items):
-        if not all([entry_id, entry_date, typing_date, note_number]):
-            return {"success": False, "message": "Todos os campos do cabeçalho são obrigatórios."}
+        if not all([entry_id, entry_date, typing_date]):
+            return {"success": False, "message": "Data de entrada e data de digitação são obrigatórias."}
         
         try:
             total_value = sum(item['quantidade'] * item['valor_unitario'] for item in items)

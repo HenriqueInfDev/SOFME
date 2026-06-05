@@ -46,6 +46,26 @@ def input_style(color):
     """
 
 
+def table_editor_style(color):
+    """Retorna QSS compacto para editores embutidos em células de tabela."""
+    return f"""
+    QLineEdit {{
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-weight: {color['font-weight']};
+        font-size: 13px;
+        border: 1px solid {color['border-color']};
+        background-color: #FFFFFF;
+        color: #0F172A;
+        min-height: 0px;
+    }}
+
+    QLineEdit:focus {{
+        border-color: #2563EB;
+    }}
+    """
+
+
 # ======================================================
 # QDOUBLESPINBOX
 # ======================================================
