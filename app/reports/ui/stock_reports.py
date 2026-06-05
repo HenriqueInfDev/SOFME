@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QDateEdit
 from app.database.db import get_db_manager
 from app.reports.export import export_to_pdf, export_to_excel
-from app.utils.ui_utils import get_save_filename, show_success_message
+from app.utils.ui_utils import CalendarTextField, format_decimal_text, get_required_date_value, get_save_filename, show_success_message
 
 from app.styles.buttons_styles import (
     button_style, BLUE, GREEN
@@ -33,10 +33,8 @@ class StockReportWindow(QWidget):
             self.filters["numero_de"] = QLineEdit()
             self.filters["numero_ate"] = QLineEdit()
             self.filters["fornecedor"] = QLineEdit()
-            self.filters["data_inicial"] = QDateEdit()
-            self.filters["data_final"] = QDateEdit()
-            self.filters["data_inicial"].setCalendarPopup(True)
-            self.filters["data_final"].setCalendarPopup(True)
+            self.filters["data_inicial"] = CalendarTextField()
+            self.filters["data_final"] = CalendarTextField()
             self.filters_layout.addRow("Número (de):", self.filters["numero_de"])
             self.filters_layout.addRow("Número (até):", self.filters["numero_ate"])
             self.filters_layout.addRow("Fornecedor:", self.filters["fornecedor"])
@@ -45,10 +43,8 @@ class StockReportWindow(QWidget):
         elif self.report_type == "Movimentação de Estoque":
             self.filters["item_de"] = QLineEdit()
             self.filters["item_ate"] = QLineEdit()
-            self.filters["periodo_de"] = QDateEdit()
-            self.filters["periodo_ate"] = QDateEdit()
-            self.filters["periodo_de"].setCalendarPopup(True)
-            self.filters["periodo_ate"].setCalendarPopup(True)
+            self.filters["periodo_de"] = CalendarTextField()
+            self.filters["periodo_ate"] = CalendarTextField()
             self.filters_layout.addRow("Item (de):", self.filters["item_de"])
             self.filters_layout.addRow("Item (até):", self.filters["item_ate"])
             self.filters_layout.addRow("Período (de):", self.filters["periodo_de"])
@@ -79,7 +75,10 @@ class StockReportWindow(QWidget):
 
     def apply_styles_to_filters(self):
         for widget in self.filters.values():
-            if isinstance(widget, (QLineEdit, QDateEdit)):
+            if isinstance(widget, CalendarTextField):
+                widget.line_edit.setStyleSheet(input_style(DEFAULTINPUT))
+                widget.button.setStyleSheet("border:none; background: transparent;")
+            elif isinstance(widget, (QLineEdit, QDateEdit)):
                 widget.setStyleSheet(input_style(DEFAULTINPUT))
 
     def generate_report(self):
@@ -145,15 +144,15 @@ class StockReportWindow(QWidget):
             "numero_de": self.filters["numero_de"].text(),
             "numero_ate": self.filters["numero_ate"].text(),
             "fornecedor": self.filters["fornecedor"].text(),
-            "data_inicial": self.filters["data_inicial"].date().toString("yyyy-MM-dd"),
-            "data_final": self.filters["data_final"].date().toString("yyyy-MM-dd"),
+            "data_inicial": get_required_date_value(self.filters["data_inicial"]),
+            "data_final": get_required_date_value(self.filters["data_final"]),
         }
         
         db_manager = get_db_manager()
         entries = db_manager.get_stock_entries(filters)
         
         headers = ["Número", "Fornecedor", "Data", "Total"]
-        data = [[e["numero"], e["fornecedor"], e["data"], e["total"]] for e in entries]
+        data = [[e["numero"], e["fornecedor"], e["data"], format_decimal_text(e["total"]) ] for e in entries]
         
         return headers, data
 
@@ -161,15 +160,15 @@ class StockReportWindow(QWidget):
         filters = {
             "item_de": self.filters["item_de"].text(),
             "item_ate": self.filters["item_ate"].text(),
-            "periodo_de": self.filters["periodo_de"].date().toString("yyyy-MM-dd"),
-            "periodo_ate": self.filters["periodo_ate"].date().toString("yyyy-MM-dd"),
+            "periodo_de": get_required_date_value(self.filters["periodo_de"]),
+            "periodo_ate": get_required_date_value(self.filters["periodo_ate"]),
         }
         
         db_manager = get_db_manager()
         movements = db_manager.get_stock_movements(filters)
         
         headers = ["Item", "Tipo de Movimento", "Quantidade", "Valor Unitário", "Data"]
-        data = [[m["item"], m["tipo_movimento"], m["quantidade"], m["valor_unitario"], m["data_movimento"]] for m in movements]
+        data = [[m["item"], m["tipo_movimento"], format_decimal_text(m["quantidade"]), format_decimal_text(m["valor_unitario"]), m["data_movimento"]] for m in movements]
         
         return headers, data
 
@@ -178,7 +177,7 @@ class StockReportWindow(QWidget):
         stock = db_manager.get_current_stock()
         
         headers = ["Item", "Saldo em Estoque", "Custo Médio"]
-        data = [[s["DESCRICAO"], s["SALDO_ESTOQUE"], s["CUSTO_MEDIO"]] for s in stock]
+        data = [[s["DESCRICAO"], format_decimal_text(s["SALDO_ESTOQUE"]), f"R$ {format_decimal_text(s["CUSTO_MEDIO"])}"] for s in stock]
         
         return headers, data
 
@@ -192,7 +191,7 @@ class StockReportWindow(QWidget):
         entry_items_data = db_manager.get_entry_items_report(filters)
         
         headers = ["Nota", "Insumo", "Quantidade", "Valor Unitário", "Valor Total"]
-        data = [[i["nota"], i["insumo"], i["quantidade"], i["valor_unitario"], i["valor_total"]] for i in entry_items_data]
+        data = [[i["nota"], i["insumo"], format_decimal_text(i["quantidade"]), format_decimal_text(i["valor_unitario"]), format_decimal_text(i["valor_total"]) ] for i in entry_items_data]
         
         return headers, data
 
@@ -201,7 +200,7 @@ class StockReportWindow(QWidget):
         stock = db_manager.get_low_stock_report()
         
         headers = ["Item", "Saldo em Estoque", "Custo Médio"]
-        data = [[s["DESCRICAO"], s["SALDO_ESTOQUE"], f"R$ {s['CUSTO_MEDIO']:.2f}"] for s in stock]
+        data = [[s["DESCRICAO"], format_decimal_text(s["SALDO_ESTOQUE"]), f"R$ {format_decimal_text(s['CUSTO_MEDIO'])}"] for s in stock]
         
         return headers, data
 
@@ -210,7 +209,7 @@ class StockReportWindow(QWidget):
         stock = db_manager.get_abc_curve_report()
         
         headers = ["Item", "Saldo", "Custo Médio", "Valor Total"]
-        data = [[s["DESCRICAO"], s["SALDO_ESTOQUE"], f"R$ {s['CUSTO_MEDIO']:.2f}", f"R$ {s['valor_total']:.2f}"] for s in stock]
+        data = [[s["DESCRICAO"], format_decimal_text(s["SALDO_ESTOQUE"]), f"R$ {format_decimal_text(s['CUSTO_MEDIO'])}", f"R$ {format_decimal_text(s['valor_total'])}"] for s in stock]
         
         return headers, data
 

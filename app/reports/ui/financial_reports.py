@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QDateEdit
 from app.database.db import get_db_manager
 from app.reports.export import export_to_pdf, export_to_excel
-from app.utils.ui_utils import get_save_filename, show_success_message
+from app.utils.ui_utils import CalendarTextField, format_decimal_text, get_required_date_value, get_save_filename, show_success_message
 
 from app.styles.buttons_styles import (
     button_style, BLUE, GREEN
@@ -32,19 +32,15 @@ class FinancialReportWindow(QWidget):
         if self.report_type == "Lucro por Produto":
             self.filters["produto_de"] = QLineEdit()
             self.filters["produto_ate"] = QLineEdit()
-            self.filters["periodo_de"] = QDateEdit()
-            self.filters["periodo_ate"] = QDateEdit()
-            self.filters["periodo_de"].setCalendarPopup(True)
-            self.filters["periodo_ate"].setCalendarPopup(True)
+            self.filters["periodo_de"] = CalendarTextField()
+            self.filters["periodo_ate"] = CalendarTextField()
             self.filters_layout.addRow("Produto (de):", self.filters["produto_de"])
             self.filters_layout.addRow("Produto (até):", self.filters["produto_ate"])
             self.filters_layout.addRow("Período (de):", self.filters["periodo_de"])
             self.filters_layout.addRow("Período (até):", self.filters["periodo_ate"])
         elif self.report_type == "Lucro por Período":
-            self.filters["data_inicial"] = QDateEdit()
-            self.filters["data_final"] = QDateEdit()
-            self.filters["data_inicial"].setCalendarPopup(True)
-            self.filters["data_final"].setCalendarPopup(True)
+            self.filters["data_inicial"] = CalendarTextField()
+            self.filters["data_final"] = CalendarTextField()
             self.filters_layout.addRow("Data Inicial:", self.filters["data_inicial"])
             self.filters_layout.addRow("Data Final:", self.filters["data_final"])
         elif self.report_type == "Custo do Produto":
@@ -63,7 +59,10 @@ class FinancialReportWindow(QWidget):
 
     def apply_styles_to_filters(self):
         for widget in self.filters.values():
-            if isinstance(widget, (QLineEdit, QDateEdit)):
+            if isinstance(widget, CalendarTextField):
+                widget.line_edit.setStyleSheet(input_style(DEFAULTINPUT))
+                widget.button.setStyleSheet("border:none; background: transparent;")
+            elif isinstance(widget, (QLineEdit, QDateEdit)):
                 widget.setStyleSheet(input_style(DEFAULTINPUT))
 
     def generate_report(self):
@@ -120,8 +119,8 @@ class FinancialReportWindow(QWidget):
         filters = {
             "produto_de": self.filters["produto_de"].text(),
             "produto_ate": self.filters["produto_ate"].text(),
-            "periodo_de": self.filters["periodo_de"].date().toString("yyyy-MM-dd"),
-            "periodo_ate": self.filters["periodo_ate"].date().toString("yyyy-MM-dd"),
+            "periodo_de": get_required_date_value(self.filters["periodo_de"]),
+            "periodo_ate": get_required_date_value(self.filters["periodo_ate"]),
         }
         
         db_manager = get_db_manager()
@@ -131,11 +130,11 @@ class FinancialReportWindow(QWidget):
         data = [
             [
                 d["produto"],
-                f"R$ {d['custo_unitario']:.2f}",
-                f"R$ {d['preco_venda']:.2f}",
-                f"{d['quantidade_vendida']:.2f}",
-                f"R$ {d['lucro_unitario']:.2f}",
-                f"R$ {d['lucro_total']:.2f}",
+                f"R$ {format_decimal_text(d['custo_unitario'])}",
+                f"R$ {format_decimal_text(d['preco_venda'])}",
+                format_decimal_text(d['quantidade_vendida']),
+                f"R$ {format_decimal_text(d['lucro_unitario'])}",
+                f"R$ {format_decimal_text(d['lucro_total'])}",
             ]
             for d in profit_data
         ]
@@ -152,14 +151,14 @@ class FinancialReportWindow(QWidget):
         cost_data = db_manager.get_product_cost_report(filters)
         
         headers = ["Produto", "Custo Médio"]
-        data = [[c["produto"], c["custo_medio"]] for c in cost_data]
+        data = [[c["produto"], format_decimal_text(c["custo_medio"])] for c in cost_data]
         
         return headers, data
 
     def generate_profit_by_period_report(self):
         filters = {
-            "data_inicial": self.filters["data_inicial"].date().toString("yyyy-MM-dd"),
-            "data_final": self.filters["data_final"].date().toString("yyyy-MM-dd"),
+            "data_inicial": get_required_date_value(self.filters["data_inicial"]),
+            "data_final": get_required_date_value(self.filters["data_final"]),
         }
         
         db_manager = get_db_manager()
@@ -169,9 +168,9 @@ class FinancialReportWindow(QWidget):
         data = []
         if profit_data and profit_data["total_vendas"] is not None:
             data.append([
-                f"R$ {profit_data['total_vendas']:.2f}",
-                f"R$ {profit_data['custo_total']:.2f}",
-                f"R$ {profit_data['lucro_final']:.2f}",
+                f"R$ {format_decimal_text(profit_data['total_vendas'])}",
+                f"R$ {format_decimal_text(profit_data['custo_total'])}",
+                f"R$ {format_decimal_text(profit_data['lucro_final'])}",
             ])
         
         return headers, data

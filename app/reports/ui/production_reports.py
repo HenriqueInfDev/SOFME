@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QDateEdit
 from app.database.db import get_db_manager
 from app.reports.export import export_to_pdf, export_to_excel
-from app.utils.ui_utils import get_save_filename, show_success_message
+from app.utils.ui_utils import CalendarTextField, format_decimal_text, get_required_date_value, get_save_filename, show_success_message
 
 from app.styles.buttons_styles import (
     button_style, BLUE, GREEN
@@ -35,10 +35,8 @@ class ProductionReportWindow(QWidget):
             self.filters["produto_de"] = QLineEdit()
             self.filters["produto_ate"] = QLineEdit()
             self.filters["status"] = QLineEdit()
-            self.filters["periodo_de"] = QDateEdit()
-            self.filters["periodo_ate"] = QDateEdit()
-            self.filters["periodo_de"].setCalendarPopup(True)
-            self.filters["periodo_ate"].setCalendarPopup(True)
+            self.filters["periodo_de"] = CalendarTextField()
+            self.filters["periodo_ate"] = CalendarTextField()
             self.filters_layout.addRow("ID (de):", self.filters["id_de"])
             self.filters_layout.addRow("ID (até):", self.filters["id_ate"])
             self.filters_layout.addRow("Produto (de):", self.filters["produto_de"])
@@ -49,19 +47,15 @@ class ProductionReportWindow(QWidget):
         elif self.report_type == "Produção por Linha":
             self.filters["linha_de"] = QLineEdit()
             self.filters["linha_ate"] = QLineEdit()
-            self.filters["periodo_de"] = QDateEdit()
-            self.filters["periodo_ate"] = QDateEdit()
-            self.filters["periodo_de"].setCalendarPopup(True)
-            self.filters["periodo_ate"].setCalendarPopup(True)
+            self.filters["periodo_de"] = CalendarTextField()
+            self.filters["periodo_ate"] = CalendarTextField()
             self.filters_layout.addRow("Linha (de):", self.filters["linha_de"])
             self.filters_layout.addRow("Linha (até):", self.filters["linha_ate"])
             self.filters_layout.addRow("Período (de):", self.filters["periodo_de"])
             self.filters_layout.addRow("Período (até):", self.filters["periodo_ate"])
         elif self.report_type == "Produção por Período":
-            self.filters["periodo_de"] = QDateEdit()
-            self.filters["periodo_ate"] = QDateEdit()
-            self.filters["periodo_de"].setCalendarPopup(True)
-            self.filters["periodo_ate"].setCalendarPopup(True)
+            self.filters["periodo_de"] = CalendarTextField()
+            self.filters["periodo_ate"] = CalendarTextField()
             self.filters_layout.addRow("Período (de):", self.filters["periodo_de"])
             self.filters_layout.addRow("Período (até):", self.filters["periodo_ate"])
         elif self.report_type == "Composição / Estrutura de Produto":
@@ -84,7 +78,10 @@ class ProductionReportWindow(QWidget):
 
     def apply_styles_to_filters(self):
         for widget in self.filters.values():
-            if isinstance(widget, (QLineEdit, QDateEdit)):
+            if isinstance(widget, CalendarTextField):
+                widget.line_edit.setStyleSheet(input_style(DEFAULTINPUT))
+                widget.button.setStyleSheet("border:none; background: transparent;")
+            elif isinstance(widget, (QLineEdit, QDateEdit)):
                 widget.setStyleSheet(input_style(DEFAULTINPUT))
 
     def generate_report(self):
@@ -150,15 +147,15 @@ class ProductionReportWindow(QWidget):
             "produto_de": self.filters["produto_de"].text(),
             "produto_ate": self.filters["produto_ate"].text(),
             "status": self.filters["status"].text(),
-            "periodo_de": self.filters["periodo_de"].date().toString("yyyy-MM-dd"),
-            "periodo_ate": self.filters["periodo_ate"].date().toString("yyyy-MM-dd"),
+            "periodo_de": get_required_date_value(self.filters["periodo_de"]),
+            "periodo_ate": get_required_date_value(self.filters["periodo_ate"]),
         }
         
         db_manager = get_db_manager()
         orders = db_manager.get_production_orders(filters)
         
         headers = ["ID", "Produto", "Status", "Data de Criação", "Quantidade"]
-        data = [[o["id"], o["produto"], o["status"], o["data_criacao"], o["quantidade"]] for o in orders]
+        data = [[o["id"], o["produto"], o["status"], o["data_criacao"], format_decimal_text(o["quantidade"]) ] for o in orders]
         
         return headers, data
 
@@ -166,15 +163,15 @@ class ProductionReportWindow(QWidget):
         filters = {
             "linha_de": self.filters["linha_de"].text(),
             "linha_ate": self.filters["linha_ate"].text(),
-            "periodo_de": self.filters["periodo_de"].date().toString("yyyy-MM-dd"),
-            "periodo_ate": self.filters["periodo_ate"].date().toString("yyyy-MM-dd"),
+            "periodo_de": get_required_date_value(self.filters["periodo_de"]),
+            "periodo_ate": get_required_date_value(self.filters["periodo_ate"]),
         }
         
         db_manager = get_db_manager()
         production = db_manager.get_production_by_line(filters)
         
         headers = ["Linha de Produção", "Produto", "Quantidade Produzida"]
-        data = [[p["linha"], p["produto"], p["quantidade"]] for p in production]
+        data = [[p["linha"], p["produto"], format_decimal_text(p["quantidade"]) ] for p in production]
         
         return headers, data
 
@@ -188,7 +185,7 @@ class ProductionReportWindow(QWidget):
         composition = db_manager.get_product_composition(filters)
         
         headers = ["Produto", "Insumo", "Quantidade", "Un."]
-        data = [[c["produto"], c["insumo"], c["quantidade"], c["unidade"]] for c in composition]
+        data = [[c["produto"], c["insumo"], format_decimal_text(c["quantidade"]), c["unidade"]] for c in composition]
         
         return headers, data
 
@@ -197,7 +194,7 @@ class ProductionReportWindow(QWidget):
         yield_data = db_manager.get_yield_report()
         
         headers = ["ID OP", "Número", "Data Criação", "Qtd Planejada", "Qtd Produzida", "Rendimento (%)"]
-        data = [[d["ID"], d["NUMERO"], d["DATA_CRIACAO"], f"{d['qtd_planejada']:.2f}", f"{d['qtd_produzida']:.2f}", f"{d['rendimento']:.2f}%"] for d in yield_data]
+        data = [[d["ID"], d["NUMERO"], d["DATA_CRIACAO"], format_decimal_text(d['qtd_planejada']), format_decimal_text(d['qtd_produzida']), f"{format_decimal_text(d['rendimento'])}%"] for d in yield_data]
         
         return headers, data
 
@@ -206,14 +203,14 @@ class ProductionReportWindow(QWidget):
         reqs = db_manager.get_material_requirements_report()
         
         headers = ["Insumo", "Un.", "Qtd Necessária", "Saldo em Estoque", "Falta"]
-        data = [[d["insumo"], d["unidade"], f"{d['qtd_necessaria']:.2f}", f"{d['qtd_estoque']:.2f}", f"{d['falta']:.2f}"] for d in reqs]
+        data = [[d["insumo"], d["unidade"], format_decimal_text(d['qtd_necessaria']), format_decimal_text(d['qtd_estoque']), format_decimal_text(d['falta'])] for d in reqs]
         
         return headers, data
 
     def generate_production_by_period_report(self):
         filters = {
-            "periodo_de": self.filters["periodo_de"].date().toString("yyyy-MM-dd"),
-            "periodo_ate": self.filters["periodo_ate"].date().toString("yyyy-MM-dd"),
+            "periodo_de": get_required_date_value(self.filters["periodo_de"]),
+            "periodo_ate": get_required_date_value(self.filters["periodo_ate"]),
         }
         
         db_manager = get_db_manager()

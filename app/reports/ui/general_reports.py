@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog
 from app.database.db import get_db_manager
 from app.reports.export import export_to_pdf, export_to_excel
-from app.utils.ui_utils import get_save_filename, show_success_message
+from app.utils.ui_utils import format_decimal_text, get_save_filename, show_success_message
 
 from app.styles.buttons_styles import (
     button_style, BLUE, GREEN
@@ -104,6 +104,6 @@ class GeneralReportWindow(QWidget):
         items = db_manager.get_items_report()
         
         headers = ["ID", "Cód. Interno", "Descrição", "Tipo", "Un.", "Saldo", "Custo Médio"]
-        data = [[i["ID"], i["CODIGO_INTERNO"], i["DESCRICAO"], i["TIPO_ITEM"], i["unidade"], f"{i['SALDO_ESTOQUE']:.2f}", f"R$ {i['CUSTO_MEDIO']:.2f}"] for i in items]
+        data = [[i["ID"], i["CODIGO_INTERNO"], i["DESCRICAO"], i["TIPO_ITEM"], i["unidade"], format_decimal_text(i['SALDO_ESTOQUE']), f"R$ {format_decimal_text(i['CUSTO_MEDIO'])}"] for i in items]
         
         return headers, data
