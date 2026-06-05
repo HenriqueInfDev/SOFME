@@ -145,12 +145,36 @@ class MainWindow(QMainWindow):
         menu.addAction(action)
 
     def _open_window(self, window_name, window_class):
-        if window_name not in self.windows:
-            self.windows[window_name] = window_class() if callable(window_class) else window_class
+        # Ensure we have a live instance. If the stored instance was deleted
+        # (Qt/C++ object destroyed), calling methods on it raises RuntimeError.
+        # Create a new instance when needed and keep the dict entry in sync.
+        instance = self.windows.get(window_name)
 
-        window = self.windows[window_name]
-        window.show()
-        window.raise_()
+        def make_instance():
+            return window_class() if callable(window_class) else window_class
+
+        if instance is None:
+            instance = make_instance()
+            self.windows[window_name] = instance
+            try:
+                instance.destroyed.connect(lambda _obj=None, name=window_name: self.windows.pop(name, None))
+            except Exception:
+                pass
+
+        try:
+            instance.show()
+            instance.raise_()
+        except RuntimeError:
+            # Underlying C++ object was deleted; recreate and replace it.
+            instance = make_instance()
+            self.windows[window_name] = instance
+            # If the instance emits destroyed, remove it from registry when destroyed
+            try:
+                instance.destroyed.connect(lambda _obj=None, name=window_name: self.windows.pop(name, None))
+            except Exception:
+                pass
+            instance.show()
+            instance.raise_()
 
     def setup_toolbar(self):
         from app.item.ui_search_window import ItemSearchWindow
