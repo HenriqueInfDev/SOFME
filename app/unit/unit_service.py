@@ -8,7 +8,12 @@ class UnitService:
     def add_unit(self, name, abbreviation):
         if not name or not abbreviation:
             return {"success": False, "message": "Nome e Sigla são obrigatórios."}
-        
+        # Normalize abbreviation to uppercase
+        if isinstance(abbreviation, str):
+            abbreviation = abbreviation.strip().upper()
+        if isinstance(name, str):
+            name = name.strip()
+
         try:
             new_id = self.unit_repository.add(name, abbreviation)
             if new_id:
@@ -29,6 +34,12 @@ class UnitService:
         if not all([unit_id, name, abbreviation]):
             return {"success": False, "message": "ID, Nome e Sigla são obrigatórios."}
         
+        # Normalize abbreviation to uppercase
+        if isinstance(abbreviation, str):
+            abbreviation = abbreviation.strip().upper()
+        if isinstance(name, str):
+            name = name.strip()
+
         try:
             if self.unit_repository.update(unit_id, name, abbreviation):
                 return {"success": True, "message": "Unidade atualizada com sucesso."}

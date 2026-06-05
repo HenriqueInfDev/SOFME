@@ -116,12 +116,25 @@ class DatabaseManager:
         }
         for table_sql in tables.values():
             cursor.execute(table_sql)
-        # Seed initial data
-        unidades = [('Grama', 'g'), ('Quilograma', 'kg'), ('Mililitro', 'ml'), ('Litro', 'L'), ('Unidade', 'un')]
+        # Seed initial data (common units used in Brazil)
+        unidades = [
+            ('Grama', 'g'),
+            ('Quilograma', 'kg'),
+            ('Miligrama', 'mg'),
+            ('Mililitro', 'ml'),
+            ('Litro', 'L'),
+            ('Metro', 'm'),
+            ('Centímetro', 'cm'),
+            ('Unidade', 'un'),
+            ('Caixa', 'cx'),
+            ('Pacote', 'pct'),
+            ('Par', 'par')
+        ]
         for nome, sigla in unidades:
             cursor.execute("SELECT ID FROM UNIDADE WHERE NOME = ?", (nome,))
             if cursor.fetchone() is None:
-                cursor.execute("INSERT INTO UNIDADE (NOME, SIGLA) VALUES (?, ?)", (nome, sigla))
+                # Ensure abbreviation is stored in uppercase
+                cursor.execute("INSERT INTO UNIDADE (NOME, SIGLA) VALUES (?, ?)", (nome, sigla.upper() if isinstance(sigla, str) else sigla))
 
     def _run_migrations(self):
         cursor = self.connection.cursor()
