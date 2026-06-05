@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QPushButton, QMessageBox, QHeaderView, QTableWidget, QTableWidgetItem,
     QLabel, QDateEdit, QAbstractItemView, QDateTimeEdit
 )
+from decimal import Decimal, InvalidOperation
 from PySide6.QtCore import QDate, Qt, QDateTime, QEvent, QRegularExpression
 from PySide6.QtGui import QRegularExpressionValidator
 from app.stock.service import StockService
@@ -27,9 +28,27 @@ from app.styles.input_styles import (
     input_style, input_date_style, table_editor_style, DEFAULTINPUT
 )
 
+def format_decimal_text(value, min_decimals=2):
+    try:
+        dec = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
+
+    if dec == dec.to_integral():
+        return f"{dec:.2f}"
+
+    normalized = dec.normalize()
+    text = format(normalized, 'f')
+    if '.' in text:
+        integer, fraction = text.split('.')
+        if len(fraction) < min_decimals:
+            fraction = fraction.ljust(min_decimals, '0')
+        return f"{integer}.{fraction}"
+    return f"{text}.{'0' * min_decimals}"
+
 class NumericDelegate(QStyledItemDelegate):
     """Delegate para editar valores numéricos diretamente na tabela."""
-    def __init__(self, parent=None, decimals=2):
+    def __init__(self, parent=None, decimals=10):
         super().__init__(parent)
         self.decimals = decimals
 
@@ -333,14 +352,14 @@ class EntryEditWindow(QWidget):
         supplier_item.setData(Qt.UserRole, item['ID_FORNECEDOR'] if 'ID_FORNECEDOR' in item else None)
         self.items_table.setItem(row, 2, supplier_item)
 
-        self.items_table.setItem(row, 3, NumericTableWidgetItem(str(item['QUANTIDADE'])))
+        self.items_table.setItem(row, 3, NumericTableWidgetItem(format_decimal_text(item['QUANTIDADE'])))
 
         unit_item = QTableWidgetItem(item['SIGLA'].upper())
         self.items_table.setItem(row, 4, unit_item)
 
-        self.items_table.setItem(row, 5, NumericTableWidgetItem(f"{item['VALOR_UNITARIO']:.2f}"))
-        total = item['QUANTIDADE'] * item['VALOR_UNITARIO']
-        self.items_table.setItem(row, 6, NumericTableWidgetItem(f"{total:.2f}"))
+        self.items_table.setItem(row, 5, NumericTableWidgetItem(format_decimal_text(item['VALOR_UNITARIO'])))
+        total = Decimal(str(item['QUANTIDADE'])) * Decimal(str(item['VALOR_UNITARIO']))
+        self.items_table.setItem(row, 6, NumericTableWidgetItem(format_decimal_text(total)))
 
         # Colunas não editáveis
         for col in [0, 1, 4]: # ID, Descrição, Un.
@@ -384,17 +403,17 @@ class EntryEditWindow(QWidget):
 
         self.items_table.blockSignals(True)
         try:
-            qty = float(qty_item.text().replace(',', '.')) if qty_item and qty_item.text() else 0.0
-            unit_price = float(unit_price_item.text().replace(',', '.')) if unit_price_item and unit_price_item.text() else 0.0
+            qty = Decimal(str(qty_item.text().replace(',', '.'))) if qty_item and qty_item.text() else Decimal('0')
+            unit_price = Decimal(str(unit_price_item.text().replace(',', '.'))) if unit_price_item and unit_price_item.text() else Decimal('0')
             
             if column == 3 or column == 5: # Quantidade ou Valor Unitário
                 new_total = qty * unit_price
-                total_price_item.setText(f"{new_total:.2f}")
+                total_price_item.setText(format_decimal_text(new_total))
             elif column == 6: # Valor Total
-                total_price = float(total_price_item.text().replace(',', '.')) if total_price_item and total_price_item.text() else 0.0
-                if qty > 0:
+                total_price = Decimal(str(total_price_item.text().replace(',', '.'))) if total_price_item and total_price_item.text() else Decimal('0')
+                if qty != 0:
                     new_unit_price = total_price / qty
-                    unit_price_item.setText(f"{new_unit_price:.2f}")
+                    unit_price_item.setText(format_decimal_text(new_unit_price))
                 else:
                     unit_price_item.setText("0.00")
         except (ValueError, TypeError, ZeroDivisionError) as e:

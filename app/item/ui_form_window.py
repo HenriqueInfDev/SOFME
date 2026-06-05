@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QComboBox, QPushButton, QMessageBox, QHeaderView, QTabWidget,
     QTableWidget, QTableWidgetItem, QLabel, QDoubleSpinBox, QAbstractItemView
 )
+from decimal import Decimal, InvalidOperation
 from PySide6.QtCore import Qt
 from app.item.service import ItemService
 from app.production import composition_operations
@@ -27,6 +28,24 @@ from app.styles.search_field_style import (
 from app.styles.input_styles import (
     input_style, doublespinbox_style, DEFAULTINPUT
 )
+
+def format_decimal_text(value, min_decimals=2):
+    try:
+        dec = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
+
+    if dec == dec.to_integral():
+        return f"{dec:.2f}"
+
+    normalized = dec.normalize()
+    text = format(normalized, 'f')
+    if '.' in text:
+        integer, fraction = text.split('.')
+        if len(fraction) < min_decimals:
+            fraction = fraction.ljust(min_decimals, '0')
+        return f"{integer}.{fraction}"
+    return f"{text}.{'0' * min_decimals}"
 
 class ItemFormWindow(QWidget):
     def __init__(self, item_id=None):
@@ -345,7 +364,7 @@ class ItemFormWindow(QWidget):
             show_warning_message(self, "Atenção", "Nenhum insumo selecionado.")
             return
 
-        quantity = self.quantity_spinbox.value()
+        quantity = Decimal(str(self.quantity_spinbox.value()))
         if quantity <= 0:
             show_warning_message(self, "Atenção", "A quantidade deve ser maior que zero.")
             return
@@ -364,11 +383,11 @@ class ItemFormWindow(QWidget):
         for row in range(self.composition_table.rowCount()):
             if int(self.composition_table.item(row, 0).text()) == material_id:
                 # Atualiza a quantidade
-                self.composition_table.item(row, 2).setText(str(quantity))
+                self.composition_table.item(row, 2).setText(format_decimal_text(quantity))
                 # Recalcula o custo total da linha
-                unit_cost = float(self.composition_table.item(row, 4).text())
+                unit_cost = Decimal(str(self.composition_table.item(row, 4).text().replace(',', '.')))
                 total_cost = quantity * unit_cost
-                self.composition_table.item(row, 5).setText(f"{total_cost:.4f}")
+                self.composition_table.item(row, 5).setText(format_decimal_text(total_cost))
                 self.update_total_cost()
                 self._clear_material_form()
                 return
@@ -438,20 +457,20 @@ class ItemFormWindow(QWidget):
         row_position = self.composition_table.rowCount()
         self.composition_table.insertRow(row_position)
         
-        total_cost = quantity * unit_cost
+        total_cost = Decimal(str(quantity)) * Decimal(str(unit_cost))
         
         self.composition_table.setItem(row_position, 0, NumericTableWidgetItem(str(material_id)))
         self.composition_table.setItem(row_position, 1, QTableWidgetItem(description))
-        self.composition_table.setItem(row_position, 2, NumericTableWidgetItem(str(quantity)))
+        self.composition_table.setItem(row_position, 2, NumericTableWidgetItem(format_decimal_text(quantity)))
         self.composition_table.setItem(row_position, 3, QTableWidgetItem(unit.upper()))
-        self.composition_table.setItem(row_position, 4, NumericTableWidgetItem(f"{unit_cost:.4f}"))
-        self.composition_table.setItem(row_position, 5, NumericTableWidgetItem(f"{total_cost:.4f}"))
+        self.composition_table.setItem(row_position, 4, NumericTableWidgetItem(format_decimal_text(unit_cost)))
+        self.composition_table.setItem(row_position, 5, NumericTableWidgetItem(format_decimal_text(total_cost)))
 
     def update_total_cost(self):
-        total = 0.0
+        total = Decimal('0')
         for row in range(self.composition_table.rowCount()):
-            total += float(self.composition_table.item(row, 5).text())
-        self.total_cost_label.setText(f"Custo Total da Composição: R$ {total:.4f}")
+            total += Decimal(str(self.composition_table.item(row, 5).text().replace(',', '.')))
+        self.total_cost_label.setText(f"Custo Total da Composição: R$ {format_decimal_text(total)}")
 
     def open_supplier_search(self):
         """Abre a janela de busca de fornecedores em modo de seleção."""

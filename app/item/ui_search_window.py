@@ -3,11 +3,30 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLineEdit,
     QComboBox, QPushButton, QTableView, QHeaderView, QAbstractItemView
 )
+from decimal import Decimal, InvalidOperation
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 
 from app.item.service import ItemService
 from app.utils.ui_utils import show_error_message, configure_table_columns
+
+def format_decimal_text(value, min_decimals=2):
+    try:
+        dec = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return str(value)
+
+    if dec == dec.to_integral():
+        return f"{dec:.2f}"
+
+    normalized = dec.normalize()
+    text = format(normalized, 'f')
+    if '.' in text:
+        integer, fraction = text.split('.')
+        if len(fraction) < min_decimals:
+            fraction = fraction.ljust(min_decimals, '0')
+        return f"{integer}.{fraction}"
+    return f"{text}.{'0' * min_decimals}"
 
 from app.styles.buttons_styles import (
     button_style, GREEN, BLUE
@@ -141,8 +160,8 @@ class ItemSearchWindow(QWidget):
             id_item = QStandardItem(str(item_dict['ID']))
             id_item.setData(item_dict['ID'], Qt.DisplayRole)
 
-            qty_item = QStandardItem(f"{item_dict['SALDO_ESTOQUE']:.2f}" if item_dict['SALDO_ESTOQUE'] is not None else "")
-            cost_item = QStandardItem(f"{item_dict['CUSTO_MEDIO']:.2f}" if item_dict['CUSTO_MEDIO'] is not None else "")
+            qty_item = QStandardItem(format_decimal_text(item_dict['SALDO_ESTOQUE']) if item_dict['SALDO_ESTOQUE'] is not None else "")
+            cost_item = QStandardItem(format_decimal_text(item_dict['CUSTO_MEDIO']) if item_dict['CUSTO_MEDIO'] is not None else "")
 
             row = [
                 id_item,
