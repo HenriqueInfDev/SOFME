@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QComboBox,
-    QHeaderView, QAbstractItemView, QTextEdit
+    QHeaderView, QAbstractItemView, QTextEdit, QSizePolicy
 )
 from PySide6.QtCore import Qt
 from app.production_line import line_operations
@@ -13,7 +13,7 @@ from app.utils.ui_utils import (
 )
 
 from app.styles.buttons_styles import (
-    button_style, GREEN, RED
+    button_style, GREEN, RED, GRAY
 )
 from app.styles.windows_style import (
     window_style, LIGHT
@@ -65,6 +65,8 @@ class LineEditWindow(QWidget):
         items_group = QGroupBox("Produtos da Linha")
         items_layout = QVBoxLayout()
         self.items_table = QTableWidget()
+        self.items_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.items_table.setMinimumHeight(220)
         self.items_table.setColumnCount(4)
         self.items_table.setHorizontalHeaderLabels(["ID Produto", "Descrição", "Quantidade", "Un."])
         self.items_table.setColumnHidden(0, True)
@@ -187,6 +189,9 @@ class LineEditWindow(QWidget):
         self.items_table.setItem(row, 1, desc_item)
         self.items_table.setItem(row, 2, qty_item)
         self.items_table.setItem(row, 3, unit_item)
+
+        self.items_table.resizeRowsToContents()
+        self.items_table.updateGeometry()
 
     def remove_item(self):
         selected_rows = self.items_table.selectionModel().selectedRows()
