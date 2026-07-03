@@ -18,9 +18,10 @@ from app.styles.windows_style import (
 )
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, user=None):
         super().__init__()
         self.windows = {}
+        self.user = user
         self.setWindowTitle("GP - MiniSis")
         self.setWindowIcon(QIcon(self._resolve_icon('home.svg')))
         self.setGeometry(100, 100, 1200, 820)
@@ -28,7 +29,7 @@ class MainWindow(QMainWindow):
         self.setup_menus()
         self.setup_toolbar()
         self.setup_central_widget()
-        self.statusBar().showMessage("Pronto")
+        self.statusBar().showMessage(f"Pronto - {self.user.get('LOGIN', 'Usuário') if self.user else 'Usuário'}")
 
     def _resolve_icon(self, icon_name):
         project_root = os.path.abspath(os.path.dirname(__file__))
@@ -261,14 +262,28 @@ logging.basicConfig(level=logging.INFO, filename='app.log', filemode='w',
 
 import traceback
 
+
 def main():
     try:
         from app.database.db import get_db_manager
+        from app.auth.login_window import LoginWindow
         get_db_manager()
 
         app = QApplication(sys.argv)
-        main_window = MainWindow()
-        main_window.showMaximized()
+
+        login_window = None
+        main_window = None
+
+        def on_login_success(user):
+            nonlocal main_window
+            main_window = MainWindow(user=user)
+            main_window.showMaximized()
+            if login_window is not None:
+                login_window.close()
+
+        login_window = LoginWindow(on_success=on_login_success)
+        # Show the login window maximized (covers the screen but keeps window borders)
+        login_window.showMaximized()
         sys.exit(app.exec())
 
     except Exception:
