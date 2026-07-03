@@ -302,6 +302,45 @@ def window_style(color):
         background-color: {color['accent-soft']};
     }}
 
+    /* ==================================================
+       SCROLLBARS
+       ================================================== */
+
+    QScrollBar:vertical,
+    QScrollBar:horizontal {{
+        background: {color['accent-soft']};
+        border-radius: 10px;
+        margin: 4px 0;
+        padding: 0;
+    }}
+
+    QScrollBar::handle:vertical,
+    QScrollBar::handle:horizontal {{
+        background: {color['accent']};
+        border-radius: 10px;
+        min-height: 24px;
+        min-width: 24px;
+    }}
+
+    QScrollBar::handle:vertical:hover,
+    QScrollBar::handle:horizontal:hover {{
+        background: {color['focus']};
+    }}
+
+    QScrollBar::add-line,
+    QScrollBar::sub-line {{
+        background: transparent;
+        border: none;
+        width: 0;
+        height: 0;
+    }}
+
+    QScrollBar::add-page,
+    QScrollBar::sub-page {{
+        background: {color['accent-soft']};
+        border-radius: 10px;
+    }}
+
     QHeaderView::section {{
         background-color: {color['accent-soft']};
         padding: 10px 14px;
