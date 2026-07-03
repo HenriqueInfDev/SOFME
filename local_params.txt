@@ -1,5 +1,5 @@
 auth.last_login=SUPORTE
 table.entry_search.columns=96,224,166,193,143
-table.item_search.columns=59,199,154,110,68,129,125
+table.item_search.columns=100,100,147,100,100,100,100
 table.sale_search.columns=111,224,222,164
-table.supplier_search.columns=0,136,157,83,106,84,92
+table.supplier_search.columns=0,100,100,100,100,100,100
