@@ -12,13 +12,22 @@ class DatabaseManager:
             cls._instance = super(DatabaseManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, db_path=None):
         if not hasattr(self, 'initialized'):
-            self.db_path = self._get_db_path()
+            self.db_path = db_path if db_path else self._get_db_path()
             self.connection = None
             self.initialize_database()
             atexit.register(self.close_connection)
             self.initialized = True
+
+    @classmethod
+    def reset_instance(cls):
+        if cls._instance:
+            try:
+                cls._instance.close_connection()
+            except Exception:
+                pass
+        cls._instance = None
 
     def _get_db_path(self):
         # Build a path relative to the project root
@@ -803,5 +812,7 @@ class DatabaseManager:
             return dict(zip(column_names, row))
         return {"total_vendas": 0, "custo_total": 0, "lucro_final": 0}
 
-def get_db_manager():
-    return DatabaseManager()
+def get_db_manager(db_path=None, reset=False):
+    if reset or db_path:
+        DatabaseManager.reset_instance()
+    return DatabaseManager(db_path=db_path) if db_path else DatabaseManager()
