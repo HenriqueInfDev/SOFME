@@ -6,6 +6,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSizePolicy
 from PySide6.QtGui import QPixmap
 from app.auth.service import AuthService
+from PySide6.QtCore import QThread, Signal, QObject
+from app.utils.ui_utils import LoadingOverlay
+from app.utils.local_settings import load_local_params, save_local_params
 from app.styles.windows_style import window_style, LIGHT
 from app.styles.input_styles import input_style, DEFAULTINPUT
 from app.styles.buttons_styles import button_style, BLUE
@@ -53,6 +56,15 @@ class LoginWindow(QWidget):
         self.login_input.setPlaceholderText('Digite o login')
         self.login_input.setFixedHeight(36)
 
+        # Load last login from local params file
+        try:
+            params = load_local_params()
+            last_login = params.get('auth.last_login')
+            if last_login:
+                self.login_input.setText(last_login)
+        except Exception:
+            pass
+
         self.password_input = QLineEdit()
         self.password_input.setStyleSheet(input_style(DEFAULTINPUT))
         self.password_input.setPlaceholderText('Digite a senha')
@@ -99,13 +111,49 @@ class LoginWindow(QWidget):
     def handle_login(self):
         login = self.login_input.text().strip()
         password = self.password_input.text().strip()
-        result = self.auth_service.authenticate_user(login, password)
-        if result['success']:
-            if self.on_success:
-                self.on_success(result['data'])
-            self.close()
-        else:
-            QMessageBox.critical(self, 'Erro de login', result['message'])
+
+        # Show loading overlay
+        if not hasattr(self, 'loading_overlay'):
+            self.loading_overlay = LoadingOverlay(self, message='Autenticando...')
+        self.loading_overlay.setMessage('Autenticando...')
+        self.loading_overlay.show()
+
+        # Use a QThread subclass to avoid cross-thread parenting issues
+        class AuthThread(QThread):
+            finished_signal = Signal(dict)
+            def __init__(self, service, login, password):
+                super().__init__()
+                self.service = service
+                self.login = login
+                self.password = password
+            def run(self):
+                try:
+                    res = self.service.authenticate_user(self.login, self.password)
+                except Exception as e:
+                    res = {'success': False, 'message': str(e)}
+                self.finished_signal.emit(res)
+
+        self.auth_thread = AuthThread(self.auth_service, login, password)
+
+        def on_auth_finished(result):
+            self.loading_overlay.hide()
+            if result.get('success'):
+                # Save last successful login to local params
+                try:
+                    params = load_local_params()
+                    params['auth.last_login'] = login
+                    save_local_params(params)
+                except Exception:
+                    pass
+                if self.on_success:
+                    self.on_success(result['data'])
+                self.close()
+            else:
+                QMessageBox.critical(self, 'Erro de login', result.get('message', 'Erro'))
+
+        self.auth_thread.finished_signal.connect(on_auth_finished)
+        self.auth_thread.finished_signal.connect(lambda _: self.auth_thread.deleteLater())
+        self.auth_thread.start()
 
     def open_register_window(self):
         # Registration removed from UI per request.

@@ -3,6 +3,7 @@ import sqlite3
 import os
 import atexit
 import logging
+import threading
 
 class DatabaseManager:
     _instance = None
@@ -15,6 +16,9 @@ class DatabaseManager:
     def __init__(self, db_path=None):
         if not hasattr(self, 'initialized'):
             self.db_path = db_path if db_path else self._get_db_path()
+            # Map of thread_id -> sqlite3.Connection
+            self._connections = {}
+            self._conn_lock = threading.Lock()
             self.connection = None
             self.initialize_database()
             atexit.register(self.close_connection)
@@ -38,24 +42,42 @@ class DatabaseManager:
         db_dir = os.path.dirname(self.db_path)
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
-        
-        self.connection = sqlite3.connect(self.db_path)
-        self.connection.row_factory = sqlite3.Row
+        main_tid = threading.get_ident()
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        with self._conn_lock:
+            self.connection = conn
+            self._connections[main_tid] = conn
+
+        # Use the main thread connection to initialize schema/migrations
         self._create_tables()
         self._run_migrations()
         self.connection.commit()
         logging.info(f"Banco de dados inicializado em: {self.db_path}")
 
     def get_connection(self):
-        if self.connection is None:
-            raise Exception("A conexão com o banco de dados não foi inicializada.")
-        return self.connection
+        tid = threading.get_ident()
+        with self._conn_lock:
+            conn = self._connections.get(tid)
+            if conn:
+                return conn
+            # create a new connection for this thread
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            self._connections[tid] = conn
+            return conn
 
     def close_connection(self):
-        if self.connection:
-            self.connection.close()
+        # Close all thread-specific connections
+        with self._conn_lock:
+            for conn in list(self._connections.values()):
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
             self.connection = None
-            logging.info("Conexão com o banco de dados fechada.")
+            logging.info("Conexões com o banco de dados fechadas.")
 
     def _create_tables(self):
         cursor = self.connection.cursor()

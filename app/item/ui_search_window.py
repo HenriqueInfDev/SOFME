@@ -9,6 +9,8 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem
 
 from app.item.service import ItemService
 from app.utils.ui_utils import show_error_message, configure_table_columns, save_table_columns
+from app.utils.ui_utils import LoadingOverlay
+from PySide6.QtCore import QThread, QObject, Signal
 
 def format_decimal_text(value, min_decimals=2):
     try:
@@ -135,59 +137,75 @@ class ItemSearchWindow(QWidget):
         search_type_text = self.search_field_combo.currentText()
         search_content = self.search_text.text()
         self.table_model.removeRows(0, self.table_model.rowCount())
-        
-        if search_content:
-            search_type_map = {
-                "Descrição": "DESCRICAO",
-                "Código Interno": "CODIGO_INTERNO",
-                "Tipo": "TIPO_ITEM",
-                "ID": "ID"
-            }
-            search_type = search_type_map.get(search_type_text, "DESCRICAO")
-            response = self.item_service.search_items(search_type, search_content)
-        else:
-            response = self.item_service.get_all_items()
 
-        if not response["success"]:
-            show_error_message(self, "Error", response["message"])
-            return
+        # Show loading overlay
+        if not hasattr(self, 'loading_overlay'):
+            self.loading_overlay = LoadingOverlay(self, message='Carregando itens...')
+        self.loading_overlay.setMessage('Carregando itens...')
+        self.loading_overlay.show()
 
-        # Aplica o filtro de tipo de item, se existir
-        items = response["data"]
-        if self.item_type_filter:
-            items = [item for item in items if item['TIPO_ITEM'] in self.item_type_filter]
-            
-        for item in items:
-            # Convert sqlite3.Row to dict if needed
-            item_dict = dict(item) if hasattr(item, 'keys') else item
-            
-            id_item = QStandardItem(str(item_dict['ID']))
-            id_item.setData(item_dict['ID'], Qt.DisplayRole)
+        class ItemThread(QThread):
+            finished_signal = Signal(dict)
+            def __init__(self, service, search_type_text, search_content, item_type_filter):
+                super().__init__()
+                self.service = service
+                self.search_type_text = search_type_text
+                self.search_content = search_content
+                self.item_type_filter = item_type_filter
+            def run(self):
+                search_type_map = {
+                    "Descrição": "DESCRICAO",
+                    "Código Interno": "CODIGO_INTERNO",
+                    "Tipo": "TIPO_ITEM",
+                    "ID": "ID"
+                }
+                search_type = search_type_map.get(self.search_type_text, "DESCRICAO")
+                if self.search_content:
+                    response = self.service.search_items(search_type, self.search_content)
+                else:
+                    response = self.service.get_all_items()
+                self.finished_signal.emit(response)
 
-            qty_item = QStandardItem(format_decimal_text(item_dict['SALDO_ESTOQUE']) if item_dict['SALDO_ESTOQUE'] is not None else "")
-            cost_item = QStandardItem(format_decimal_text(item_dict['CUSTO_MEDIO']) if item_dict['CUSTO_MEDIO'] is not None else "")
+        self.thread = ItemThread(self.item_service, search_type_text, search_content, getattr(self, 'item_type_filter', None))
 
-            row = [
-                id_item,
-                QStandardItem(item_dict['DESCRICAO']),
-                QStandardItem(item_dict['CODIGO_INTERNO'] or ""),
-                QStandardItem(item_dict['TIPO_ITEM']),
-                QStandardItem(item_dict['SIGLA'].upper()),
-                qty_item,
-                cost_item
-            ]
-            self.table_model.appendRow(row)
+        def on_finished(response):
+            self.loading_overlay.hide()
+            if not response.get('success'):
+                show_error_message(self, "Error", response.get('message', 'Erro'))
+                return
+            items = response.get('data', [])
+            if self.item_type_filter:
+                items = [item for item in items if item['TIPO_ITEM'] in self.item_type_filter]
+            for item in items:
+                item_dict = dict(item) if hasattr(item, 'keys') else item
+                id_item = QStandardItem(str(item_dict['ID']))
+                id_item.setData(item_dict['ID'], Qt.DisplayRole)
+                qty_item = QStandardItem(format_decimal_text(item_dict['SALDO_ESTOQUE']) if item_dict['SALDO_ESTOQUE'] is not None else "")
+                cost_item = QStandardItem(format_decimal_text(item_dict['CUSTO_MEDIO']) if item_dict['CUSTO_MEDIO'] is not None else "")
+                row = [
+                    id_item,
+                    QStandardItem(item_dict['DESCRICAO']),
+                    QStandardItem(item_dict['CODIGO_INTERNO'] or ""),
+                    QStandardItem(item_dict['TIPO_ITEM']),
+                    QStandardItem(item_dict['SIGLA'].upper()),
+                    qty_item,
+                    cost_item
+                ]
+                self.table_model.appendRow(row)
+                full_item_data = {
+                    'ID': item_dict['ID'],
+                    'DESCRICAO': item_dict['DESCRICAO'],
+                    'CODIGO_INTERNO': item_dict['CODIGO_INTERNO'],
+                    'TIPO_ITEM': item_dict['TIPO_ITEM'],
+                    'SIGLA': item_dict['SIGLA'],
+                    'SALDO_ESTOQUE': item_dict['SALDO_ESTOQUE'],
+                    'CUSTO_MEDIO': item_dict['CUSTO_MEDIO']
+                }
+                self.table_model.item(self.table_model.rowCount() - 1, 0).setData(full_item_data, Qt.UserRole)
 
-            full_item_data = {
-                'ID': item_dict['ID'],
-                'DESCRICAO': item_dict['DESCRICAO'],
-                'CODIGO_INTERNO': item_dict['CODIGO_INTERNO'],
-                'TIPO_ITEM': item_dict['TIPO_ITEM'],
-                'SIGLA': item_dict['SIGLA'],
-                'SALDO_ESTOQUE': item_dict['SALDO_ESTOQUE'],
-                'CUSTO_MEDIO': item_dict['CUSTO_MEDIO']
-            }
-            self.table_model.item(self.table_model.rowCount() - 1, 0).setData(full_item_data, Qt.UserRole)
+        self.thread.finished_signal.connect(on_finished)
+        self.thread.finished_signal.connect(lambda _: self.thread.deleteLater())
+        self.thread.start()
 
     def handle_double_click(self, model_index):
         if self.selection_mode:

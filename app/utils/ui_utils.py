@@ -8,6 +8,9 @@ from PySide6.QtGui import QFontMetrics, QIcon
 from app.styles.buttons_styles import button_style, GREEN, RED, YELLOW
 from app.styles.input_styles import _get_icon_path
 from app.utils.local_settings import load_table_column_widths, save_table_column_widths
+from PySide6.QtWidgets import QWidget, QLabel
+from PySide6.QtCore import QTimer, Signal, QObject
+from PySide6.QtGui import QPainter, QColor, QPen
 
 
 def configure_table_columns(table_view, total_width=None, padding=36, table_name=None):
@@ -223,6 +226,87 @@ class CalendarTextField(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.addWidget(calendar)
         dialog.exec()
+
+
+class Spinner(QWidget):
+    """Simple animated spinner widget."""
+    def __init__(self, parent=None, line_count=12, line_length=8, line_width=3, inner_radius=10, color=QColor(66,133,244)):
+        super().__init__(parent)
+        self._angle = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._on_timeout)
+        self._timer.start(80)
+        self.line_count = line_count
+        self.line_length = line_length
+        self.line_width = line_width
+        self.inner_radius = inner_radius
+        self.color = color
+        self.setFixedSize(inner_radius * 4, inner_radius * 4)
+
+    def _on_timeout(self):
+        self._angle = (self._angle + 30) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        cx = self.width() / 2
+        cy = self.height() / 2
+        painter.translate(cx, cy)
+        for i in range(self.line_count):
+            angle = (360.0 * i) / self.line_count
+            painter.save()
+            painter.rotate(angle + self._angle)
+            alpha = int(255 * (i + 1) / self.line_count)
+            pen = QPen(self.color)
+            pen.setWidth(self.line_width)
+            col = QColor(self.color)
+            col.setAlpha(alpha)
+            pen.setColor(col)
+            painter.setPen(pen)
+            painter.drawLine(self.inner_radius, 0, self.inner_radius + self.line_length, 0)
+            painter.restore()
+
+
+class LoadingOverlay(QWidget):
+    """Semi-transparent full-window overlay with centered spinner and optional message."""
+    def __init__(self, parent=None, message="Carregando..."):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        self.message = message
+        self.spinner = Spinner(self)
+        self.label = QLabel(message, self)
+        self.label.setStyleSheet('color: white; font-weight: 600;')
+        self.label.setAlignment(Qt.AlignCenter)
+        self.hide()
+
+    def showEvent(self, event):
+        self.resize_overlay()
+        super().showEvent(event)
+
+    def resize_overlay(self):
+        if self.parent():
+            self.setGeometry(0, 0, self.parent().width(), self.parent().height())
+        # center spinner + label
+        cx = self.width() / 2
+        cy = self.height() / 2
+        self.spinner.move(int(cx - self.spinner.width() / 2), int(cy - self.spinner.height() / 2 - 12))
+        self.label.move(int(cx - 100), int(cy + self.spinner.height() / 2 - 6))
+        self.label.resize(200, 24)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 160))
+
+    def show(self):
+        self.resize_overlay()
+        super().show()
+
+    def setMessage(self, msg):
+        self.message = msg
+        self.label.setText(msg)
 
     def _select_date(self, date, dialog):
         self.line_edit.blockSignals(True)
