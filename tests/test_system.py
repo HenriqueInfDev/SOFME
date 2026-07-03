@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import unittest
 import tempfile
 
@@ -35,22 +36,9 @@ def setUpModule():
 
 
 class BaseDatabaseTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temp_db_file = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
-        cls.db_path = cls.temp_db_file.name
-        cls.temp_db_file.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        try:
-            os.unlink(cls.db_path)
-        except OSError:
-            pass
-
     def setUp(self):
         DatabaseManager.reset_instance()
-        self.db_manager = get_db_manager(db_path=self.db_path)
+        self.db_manager = get_db_manager(db_path=':memory:')
 
     def tearDown(self):
         DatabaseManager.reset_instance()
@@ -141,6 +129,22 @@ class TestItemService(BaseDatabaseTest):
         self.assertEqual(item['SALDO_ESTOQUE'], 10)
         self.assertEqual(item['CUSTO_MEDIO'], 5)
 
+    def test_manual_input_material_updates_average_cost_with_different_prices(self):
+        unit_service = UnitService()
+        item_service = ItemService()
+        unit_id = unit_service.add_unit('Input Unit 2', 'IU')['data']
+        item_id = item_service.add_item('codM2', 'Material Teste 2', 'Insumo', unit_id, None)['data']
+
+        result1 = item_service.manual_input_material(item_id, 10, 50)
+        self.assertTrue(result1['success'])
+
+        result2 = item_service.manual_input_material(item_id, 20, 120)
+        self.assertTrue(result2['success'])
+
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 30)
+        self.assertAlmostEqual(item['CUSTO_MEDIO'], 170 / 30, places=6)
+
 
 class TestSupplierService(BaseDatabaseTest):
     def test_add_get_update_delete_supplier(self):
@@ -208,6 +212,37 @@ class TestStockService(BaseDatabaseTest):
         delete_result = stock_service.delete_entry(entry_id)
         self.assertTrue(delete_result['success'])
 
+    def test_finalize_entry_updates_item_stock_and_cost(self):
+        unit_service = UnitService()
+        supplier_service = SupplierService()
+        item_service = ItemService()
+        stock_service = StockService()
+
+        supplier_data = {
+            'logradouro': 'Rua A', 'numero': '1', 'complemento': '',
+            'bairro': 'Bairro', 'cidade': 'Cidade', 'uf': 'SP', 'cep': '00000-000'
+        }
+        supplier_id = supplier_service.add_supplier('Fornecedor Entrada 2', 'Fantasia', '', '999999999', 'email@test.com', supplier_data, 'Ativo')['data']
+        unit_id = unit_service.add_unit('Estoque Unit 2', 'EU')['data']
+        item_id = item_service.add_item('codEntrada2', 'Insumo Entrada 2', 'Insumo', unit_id, supplier_id)['data']
+
+        entry_result = stock_service.create_entry('2024-01-05', '2024-01-06', '456', 'Observacao')
+        self.assertTrue(entry_result['success'])
+        entry_id = entry_result['data']
+
+        update_result = stock_service.update_entry(entry_id, '2024-01-05', '2024-01-06', '456', 'Observacao atualizada', [{'id_insumo': item_id, 'id_fornecedor': supplier_id, 'quantidade': 8, 'valor_unitario': 12}])
+        self.assertTrue(update_result['success'])
+
+        finalize_result = stock_service.finalize_entry(entry_id)
+        self.assertTrue(finalize_result['success'])
+
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 8)
+        self.assertEqual(item['CUSTO_MEDIO'], 12)
+
+        reopen_result = stock_service.reopen_entry(entry_id)
+        self.assertTrue(reopen_result['success'])
+
     def test_list_entries_search(self):
         stock_service = StockService()
         entry_result = stock_service.create_entry('2024-01-01', '2024-01-02', '321', 'Observacao')
@@ -240,6 +275,27 @@ class TestSaleService(BaseDatabaseTest):
         details_result = sale_service.get_sale_details(sale_id)
         self.assertTrue(details_result['success'])
         self.assertEqual(details_result['data']['master']['ID'], sale_id)
+
+    def test_finalize_sale_reduces_stock(self):
+        unit_service = UnitService()
+        item_service = ItemService()
+        sale_service = SaleService()
+
+        unit_id = unit_service.add_unit('Sale Stock Unit', 'SS')['data']
+        product_id = item_service.add_item('codProdStock', 'Produto Venda Stock', 'Ambos', unit_id, None)['data']
+
+        result = item_service.manual_input_material(product_id, 20, 100)
+        self.assertTrue(result['success'])
+
+        sale_result = sale_service.create_sale('2024-01-10', 'Observacao', [{'id_produto': product_id, 'quantidade': 4, 'valor_unitario': 15}])
+        self.assertTrue(sale_result['success'])
+        sale_id = sale_result['data']
+
+        finalize_result = sale_service.finalize_sale(sale_id)
+        self.assertTrue(finalize_result['success'])
+
+        item = item_service.get_item_by_id(product_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 16)
 
     def test_list_sales_search(self):
         sale_service = SaleService()
@@ -334,5 +390,93 @@ class TestProductionOperations(BaseDatabaseTest):
         self.assertTrue(deleted_ok)
 
 
+def get_test_description(test):
+    description = test.shortDescription()
+    if description:
+        return description
+
+    name = getattr(test, '_testMethodName', '')
+    descriptions = {
+        'test_database_tables_exist': 'Banco de dados cria todas as tabelas',
+        'test_add_update_delete_unit': 'Adicionar, atualizar e excluir unidade',
+        'test_delete_unit_in_use': 'Não permitir excluir unidade em uso',
+        'test_add_get_update_delete_item': 'Adicionar, consultar, atualizar e excluir item',
+        'test_search_items': 'Pesquisar itens',
+        'test_manual_input_material': 'Entrada manual de material',
+        'test_manual_input_material_updates_average_cost_with_different_prices': 'Cálculo do custo médio',
+        'test_add_get_update_delete_supplier': 'Adicionar, consultar, atualizar e excluir fornecedor',
+        'test_add_supplier_invalid_cnpj': 'Validar CNPJ inválido do fornecedor',
+        'test_create_update_finalize_reopen_delete_entry': 'Criar, atualizar, finalizar, reabrir e excluir entrada',
+        'test_finalize_entry_updates_item_stock_and_cost': 'Finalizar entrada atualiza estoque e custo',
+        'test_list_entries_search': 'Listar e pesquisar entradas',
+        'test_create_update_finalize_sale': 'Criar, atualizar e finalizar venda',
+        'test_finalize_sale_reduces_stock': 'Finalizar venda reduz estoque',
+        'test_list_sales_search': 'Listar e pesquisar vendas',
+        'test_create_get_update_delete_line': 'Criar, consultar, atualizar e excluir linha de produção',
+        'test_bom_operations': 'Operações de composição (BOM)',
+        'test_op_create_update_finalize_cancel_delete': 'Criar, atualizar, finalizar, cancelar e excluir ordem de produção',
+    }
+
+    if name in descriptions:
+        return descriptions[name]
+
+    description = name.replace('_', ' ')
+    if description.startswith('test '):
+        description = description[5:]
+    return description.capitalize()
+
+
+class PortugueseTestResult(unittest.TextTestResult):
+    def __init__(self, stream, descriptions, verbosity):
+        super().__init__(stream, descriptions, verbosity)
+        self.success_count = 0
+        self.start_time = None
+
+    def startTestRun(self):
+        self.start_time = time.time()
+        print('\n' + '=' * 60)
+        print('EXECUTANDO TESTES DO SISTEMA')
+        print('=' * 60)
+        print()
+
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        self.success_count += 1
+        print(f'\033[32mOK\033[0m {get_test_description(test)}')
+
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        print(f'\033[31mERROR\033[0m {get_test_description(test)}')
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        print(f'\033[31mERROR\033[0m {get_test_description(test)}')
+
+    def stopTestRun(self):
+        super().stopTestRun()
+        duration = time.time() - self.start_time if self.start_time else 0
+        print()
+        print('=' * 60)
+        print('RESUMO')
+        print('-' * 60)
+        print(f'Total de testes : {self.testsRun}')
+        print(f'Sucessos        : {self.success_count}')
+        print(f'Falhas          : {len(self.failures)}')
+        print(f'Erros           : {len(self.errors)}')
+        print(f'Tempo           : {duration:.2f} segundos')
+        print()
+        if not self.failures and not self.errors:
+            print('🎉 TODOS OS TESTES FORAM APROVADOS')
+        else:
+            print('⚠️ HOUVE FALHAS OU ERROS NOS TESTES')
+        print('=' * 60)
+
+
+class PortugueseTestRunner(unittest.TextTestRunner):
+    def _makeResult(self):
+        return PortugueseTestResult(self.stream, self.descriptions, self.verbosity)
+
+
 if __name__ == '__main__':
-    unittest.main()
+    runner = PortugueseTestRunner(verbosity=0)
+    unittest.main(testRunner=runner)
