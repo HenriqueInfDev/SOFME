@@ -1,4 +1,5 @@
 # app/utils/ui_utils.py
+import os
 import re
 from decimal import Decimal, InvalidOperation
 from PySide6.QtWidgets import QMessageBox, QTableWidgetItem, QFileDialog, QDateEdit, QLineEdit, QPushButton, QCalendarWidget, QHBoxLayout, QWidget, QDialog, QVBoxLayout
@@ -6,21 +7,30 @@ from PySide6.QtCore import Qt, QDate, QEvent
 from PySide6.QtGui import QFontMetrics, QIcon
 from app.styles.buttons_styles import button_style, GREEN, RED, YELLOW
 from app.styles.input_styles import _get_icon_path
+from app.utils.local_settings import load_table_column_widths, save_table_column_widths
 
 
-def configure_table_columns(table_view, total_width=None, padding=36):
+def configure_table_columns(table_view, total_width=None, padding=36, table_name=None):
     """Configura larguras iniciais de colunas para exibir o cabeçalho completo.
 
-    A largura mínima de cada coluna fica baseada no tamanho do texto do cabeçalho,
-    e a largura total é distribuída proporcionalmente no espaço disponível.
+    Se `table_name` for fornecido, tentamos carregar larguras salvas em
+    `local_params.txt` antes de calcular larguras automáticas.
     """
     model = table_view.model()
     if model is None or model.columnCount() == 0:
         return
 
+    column_count = model.columnCount()
+    if table_name:
+        saved_widths = load_table_column_widths(table_name)
+        if saved_widths:
+            for index, width in enumerate(saved_widths[:column_count]):
+                table_view.setColumnWidth(index, width)
+            if len(saved_widths) >= column_count:
+                return
+
     fm = QFontMetrics(table_view.font())
     header = table_view.horizontalHeader()
-    column_count = model.columnCount()
     min_widths = []
     for column in range(column_count):
         header_label = model.headerData(column, Qt.Horizontal) or ""
@@ -37,11 +47,23 @@ def configure_table_columns(table_view, total_width=None, padding=36):
     if total_min == 0:
         widths = [max(100, total_width // column_count)] * column_count
     else:
-        for min_width in min_widths:
-            widths.append(max(min_width, int(total_width * min_width / total_min)))
+        for index, min_width in enumerate(min_widths):
+            if table_name and index < len(saved_widths):
+                widths.append(saved_widths[index])
+            else:
+                widths.append(max(min_width, int(total_width * min_width / total_min)))
 
     for index, width in enumerate(widths):
         table_view.setColumnWidth(index, width)
+
+
+def save_table_columns(table_view, table_name):
+    model = table_view.model()
+    if model is None or model.columnCount() == 0:
+        return
+
+    widths = [table_view.columnWidth(i) for i in range(model.columnCount())]
+    save_table_column_widths(table_name, widths)
 
 
 def show_warning_message(parent, title, message):

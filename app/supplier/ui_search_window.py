@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtCore import Signal, Qt
 from app.supplier.service import SupplierService
-from app.utils.ui_utils import show_error_message, configure_table_columns
+from app.utils.ui_utils import show_error_message, configure_table_columns, save_table_columns
 from app.supplier.ui_edit_window import SupplierEditWindow
 
 from app.styles.buttons_styles import (
@@ -99,7 +99,11 @@ class SupplierSearchWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width())
+        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width(), table_name='supplier_search')
+
+    def closeEvent(self, event):
+        save_table_columns(self.table_view, 'supplier_search')
+        super().closeEvent(event)
 
     def load_suppliers(self):
         self.table_model.removeRows(0, self.table_model.rowCount())

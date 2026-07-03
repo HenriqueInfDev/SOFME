@@ -7,6 +7,7 @@ from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 from app.production import order_operations
 from app.utils.date_utils import format_date_for_display
+from app.utils.ui_utils import configure_table_columns, save_table_columns
 
 from app.styles.buttons_styles import (
     button_style, GREEN, BLUE
@@ -79,6 +80,14 @@ class OPSearchWindow(QWidget):
         layout.addWidget(self.table_view)
         results_group.setLayout(layout)
         self.main_layout.addWidget(results_group)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width(), table_name='op_search')
+
+    def closeEvent(self, event):
+        save_table_columns(self.table_view, 'op_search')
+        super().closeEvent(event)
 
     def load_ops(self):
         self.table_model.removeRows(0, self.table_model.rowCount())

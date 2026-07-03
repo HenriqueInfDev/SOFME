@@ -10,7 +10,7 @@ from app.unit.unit_service import UnitService
 from app.utils.ui_utils import (
     show_error_message, 
     show_confirmation_message, show_warning_message,
-    configure_table_columns
+    configure_table_columns, save_table_columns
 )
 
 from app.styles.buttons_styles import (
@@ -103,7 +103,11 @@ class UnitWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width())
+        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width(), table_name='unit_table')
+
+    def closeEvent(self, event):
+        save_table_columns(self.table_view, 'unit_table')
+        super().closeEvent(event)
 
     def load_units(self):
         self.table_model.removeRows(0, self.table_model.rowCount())

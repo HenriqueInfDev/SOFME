@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 from PySide6.QtCore import Qt
 from app.sales.sale_service import SaleService
-from app.utils.ui_utils import show_error_message, configure_table_columns
+from app.utils.ui_utils import show_error_message, configure_table_columns, save_table_columns
 from app.sales.ui_sale_edit_window import SaleEditWindow
 from app.utils.date_utils import format_date_for_display
 
@@ -85,7 +85,11 @@ class SaleSearchWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width())
+        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width(), table_name='sale_search')
+
+    def closeEvent(self, event):
+        save_table_columns(self.table_view, 'sale_search')
+        super().closeEvent(event)
 
     def load_sales(self):
         self.table_model.removeRows(0, self.table_model.rowCount())

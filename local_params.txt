@@ -1,0 +1,2 @@
+table.item_search.columns=59,364,154,74,68,129,125
+table.sale_search.columns=111,224,222,164

@@ -8,7 +8,7 @@ from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QStandardItemModel, QStandardItem
 
 from app.item.service import ItemService
-from app.utils.ui_utils import show_error_message, configure_table_columns
+from app.utils.ui_utils import show_error_message, configure_table_columns, save_table_columns
 
 def format_decimal_text(value, min_decimals=2):
     try:
@@ -124,7 +124,11 @@ class ItemSearchWindow(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width())
+        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width(), table_name='item_search')
+
+    def closeEvent(self, event):
+        save_table_columns(self.table_view, 'item_search')
+        super().closeEvent(event)
 
     def load_items(self):
         """Carrega os itens na tabela, usando o ItemService."""
