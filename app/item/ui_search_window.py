@@ -68,8 +68,8 @@ class ItemSearchWindow(QWidget):
         # --- Grupo de Resultados ---
         self.create_results_group()
         
-        # Carrega os itens na inicialização
-        self.load_items()
+        # A tela começa vazia e só carrega quando o usuário clicar em Buscar.
+        self.table_model.removeRows(0, self.table_model.rowCount())
 
     def create_search_group(self):
         search_group = QGroupBox("Pesquisa")

@@ -34,7 +34,7 @@ class OPSearchWindow(QWidget):
         self.setGeometry(200, 200, 800, 600)
         self.setStyleSheet(window_style(LIGHT))
         self.setup_ui()
-        self.load_ops()
+        self.table_model.removeRows(0, self.table_model.rowCount())
 
     def setup_ui(self):
         self.main_layout = QVBoxLayout(self)

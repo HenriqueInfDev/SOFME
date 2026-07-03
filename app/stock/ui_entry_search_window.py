@@ -33,7 +33,7 @@ class EntrySearchWindow(QWidget):
         self.setGeometry(200, 200, 900, 700)
         self.setStyleSheet(window_style(LIGHT))
         self.setup_ui()
-        self.load_entries()
+        self.table_model.removeRows(0, self.table_model.rowCount())
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
