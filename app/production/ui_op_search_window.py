@@ -81,14 +81,6 @@ class OPSearchWindow(QWidget):
         results_group.setLayout(layout)
         self.main_layout.addWidget(results_group)
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        configure_table_columns(self.table_view, total_width=self.table_view.viewport().width(), table_name='op_search')
-
-    def closeEvent(self, event):
-        save_table_columns(self.table_view, 'op_search')
-        super().closeEvent(event)
-
     def load_ops(self):
         self.table_model.removeRows(0, self.table_model.rowCount())
         search_term = self.search_term.text()
