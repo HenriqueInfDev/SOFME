@@ -103,7 +103,7 @@ class AuthService:
         conn.commit()
         return {'success': True, 'data': cursor.lastrowid}
 
-    def update_user(self, user_id, password=None, ativo=None):
+    def update_user(self, user_id, password=None, ativo=None, login=None):
         if not user_id:
             return {'success': False, 'message': 'ID é obrigatório.'}
 
@@ -124,6 +124,18 @@ class AuthService:
 
         updates = []
         params = []
+        # Handle login change
+        if login:
+            login_value = login.strip().upper()
+            # Prevent colliding with internal support alias
+            if login.strip() == _support_login_internal() or login_value == 'SUPORTE':
+                return {'success': False, 'message': 'Login não permitido.'}
+            cursor.execute("SELECT ID FROM USUARIO WHERE LOGIN = ?", (login_value,))
+            existing = cursor.fetchone()
+            if existing and existing['ID'] != user_id:
+                return {'success': False, 'message': 'Este login já está em uso.'}
+            updates.append('LOGIN = ?')
+            params.append(login_value)
         if password:
             updates.append('SENHA = ?')
             params.append(password)

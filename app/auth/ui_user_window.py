@@ -58,26 +58,42 @@ class UserEditDialog(QDialog):
         self.setStyleSheet(window_style(LIGHT))
         layout = QFormLayout(self)
 
-        self.login_label = QLabel(login)
-        layout.addRow(QLabel('Login:'), self.login_label)
+        self.login_input = QLineEdit(login)
+        self.login_input.setStyleSheet(input_style(DEFAULTINPUT))
+        layout.addRow(QLabel('Login:'), self.login_input)
 
+        # Password field shows masked placeholder for current password.
         self.password_input = QLineEdit()
         self.password_input.setStyleSheet(input_style(DEFAULTINPUT))
         self.password_input.setEchoMode(QLineEdit.Password)
+
+        # no visual mask label; only use the password input (masked by EchoMode)
+
+        # Confirmation label + input (hidden until edit)
+        self.confirm_label = QLabel('Repita a senha:')
         self.confirm_input = QLineEdit()
         self.confirm_input.setStyleSheet(input_style(DEFAULTINPUT))
         self.confirm_input.setEchoMode(QLineEdit.Password)
-        layout.addRow(QLabel('Nova senha:'), self.password_input)
-        layout.addRow(QLabel('Repita a senha:'), self.confirm_input)
+        self.confirm_label.hide()
+        self.confirm_input.hide()
+
+        # Create a small container for the password input and mask label
+        pwd_container = QWidget()
+        pwd_layout = QHBoxLayout(pwd_container)
+        pwd_layout.setContentsMargins(0, 0, 0, 0)
+        pwd_layout.addWidget(self.password_input)
+
+        layout.addRow(QLabel('Senha:'), pwd_container)
+        layout.addRow(self.confirm_label, self.confirm_input)
 
         self.ativo_combo = QComboBox()
         self.ativo_combo.addItems(['Sim', 'Não'])
-        self.ativo_combo.setStyleSheet(search_field_style(DEFAULT))
         try:
             idx = ['Sim', 'Não'].index(ativo)
         except Exception:
             idx = 0
         self.ativo_combo.setCurrentIndex(idx)
+        self.ativo_combo.setStyleSheet(search_field_style(DEFAULT))
         layout.addRow(QLabel('Ativo:'), self.ativo_combo)
 
         buttons_layout = QHBoxLayout()
@@ -88,13 +104,33 @@ class UserEditDialog(QDialog):
         buttons_layout.addWidget(self.save_button)
         layout.addRow(buttons_layout)
 
+        self._password_edited = False
+        self.password_input.textChanged.connect(self._on_password_changed)
+
+    def _on_password_changed(self, text):
+        if text:
+            if not self._password_edited:
+                self._password_edited = True
+                self.confirm_label.show()
+                self.confirm_input.show()
+                self.password_mask_label.hide()
+        else:
+            # empty => user did not edit password; hide confirmation
+            self._password_edited = False
+            self.confirm_label.hide()
+            self.confirm_input.hide()
+
     def get_data(self):
+        login = self.login_input.text().strip()
         pwd = self.password_input.text().strip()
-        conf = self.confirm_input.text().strip()
+        conf = self.confirm_input.text().strip() if self._password_edited else ''
         ativo = self.ativo_combo.currentText()
-        if pwd and pwd != conf:
-            return {'error': 'As senhas não conferem.'}
-        return {'password': pwd or None, 'ativo': ativo}
+        if self._password_edited:
+            if not pwd:
+                return {'error': 'Senha não pode ser vazia.'}
+            if pwd != conf:
+                return {'error': 'As senhas não conferem.'}
+        return {'login': login or None, 'password': pwd if self._password_edited else None, 'ativo': ativo}
 
 
 class UserWindow(QWidget):
@@ -204,7 +240,8 @@ class UserWindow(QWidget):
                 return
             password = data.get('password')
             ativo_val = data.get('ativo')
-            resp = self.auth_service.update_user(user_id, password=password, ativo=ativo_val)
+            new_login = data.get('login')
+            resp = self.auth_service.update_user(user_id, password=password, ativo=ativo_val, login=new_login)
             if resp.get('success'):
                 self.load_users()
             else:
