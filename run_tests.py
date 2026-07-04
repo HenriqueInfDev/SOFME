@@ -150,13 +150,44 @@ def run_grouped_tests(tests_dir, selected_category=None, failfast=False):
         print('\n' + '=' * 70)
         print(f"Executando categoria: {readable}")
         print('=' * 70)
-        # print per-test Portuguese descriptions to help reading console
-        for t in groups[module]:
-            mname = getattr(t, '_testMethodName', str(t))
-            print(f"- {mname}: {translate_test_name(mname)}")
+        # Use a custom TestResult to print status before description on same line
+        class PortugueseTextTestResult(unittest.TextTestResult):
+            GREEN = "\x1b[32m"
+            RED = "\x1b[31m"
+            RESET = "\x1b[0m"
+            def startTest(self, test):
+                # call base TestResult.startTest to maintain counters, but skip TextTestResult printing
+                unittest.TestResult.startTest(self, test)
+
+            def stopTest(self, test):
+                # avoid TextTestResult's stopTest printing
+                unittest.TestResult.stopTest(self, test)
+            def addSuccess(self, test):
+                # record success without TextTestResult's printing
+                unittest.TestResult.addSuccess(self, test)
+                mname = getattr(test, '_testMethodName', str(test))
+                desc = translate_test_name(mname)
+                self.stream.write(f"{self.GREEN}OK{self.RESET} - {mname}: {desc}\n")
+
+            def addFailure(self, test, err):
+                # record failure without TextTestResult's printing
+                unittest.TestResult.addFailure(self, test, err)
+                mname = getattr(test, '_testMethodName', str(test))
+                desc = translate_test_name(mname)
+                self.stream.write(f"{self.RED}ERROR{self.RESET} - {mname}: {desc}\n")
+                self.stream.write(self._exc_info_to_string(err, test) + "\n")
+
+            def addError(self, test, err):
+                # record error without TextTestResult's printing
+                unittest.TestResult.addError(self, test, err)
+                mname = getattr(test, '_testMethodName', str(test))
+                desc = translate_test_name(mname)
+                self.stream.write(f"{self.RED}ERROR{self.RESET} - {mname}: {desc}\n")
+                self.stream.write(self._exc_info_to_string(err, test) + "\n")
 
         suite_for_module = unittest.TestSuite(groups[module])
-        result = runner.run(suite_for_module)
+        runner_module = unittest.TextTestRunner(stream=sys.stdout, verbosity=2, failfast=failfast, resultclass=PortugueseTextTestResult)
+        result = runner_module.run(suite_for_module)
         total_run += result.testsRun
         total_failures += len(result.failures)
         total_errors += len(result.errors)
