@@ -835,6 +835,10 @@ class DatabaseManager:
         return {"total_vendas": 0, "custo_total": 0, "lucro_final": 0}
 
 def get_db_manager(db_path=None, reset=False):
+    # When tests request a reset without a custom path, use an in-memory DB
+    # to ensure isolation and avoid polluting the on-disk database.
     if reset or db_path:
         DatabaseManager.reset_instance()
+    if reset and not db_path:
+        return DatabaseManager(db_path=':memory:')
     return DatabaseManager(db_path=db_path) if db_path else DatabaseManager()

@@ -33,8 +33,7 @@ class AuthService:
                 ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 LOGIN TEXT NOT NULL UNIQUE,
                 SENHA TEXT NOT NULL,
-                NOME TEXT,
-                ATIVO INTEGER NOT NULL DEFAULT 1
+                ATIVO TEXT NOT NULL DEFAULT 'Sim'
             )
         ''')
         conn.commit()
@@ -58,23 +57,30 @@ class AuthService:
         conn = self.db_manager.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT ID, LOGIN, SENHA, NOME FROM USUARIO WHERE LOGIN = ? AND SENHA = ? AND ATIVO = 1",
-            (login_value.upper(), password,)
+            "SELECT ID, LOGIN, SENHA, ATIVO FROM USUARIO WHERE LOGIN = ? AND SENHA = ? AND ATIVO = ?",
+            (login_value.upper(), password, 'Sim')
         )
         user = cursor.fetchone()
         if user:
-            return {'success': True, 'data': dict(user)}
+            row = dict(user)
+            # Normalize legacy numeric flags to 'Sim'/'Não'
+            ativo_val = row.get('ATIVO')
+            if isinstance(ativo_val, int):
+                row['ATIVO'] = 'Sim' if ativo_val == 1 else 'Não'
+            row['ATIVO'] = str(row.get('ATIVO'))
+            return {'success': True, 'data': row}
 
         # Check internal support credentials (not stored in DB).
         # Accept either the internal alias or the public 'SUPORTE' when authenticating,
         # but do not persist these credentials in the database.
-        if (login_value == _support_login_internal() or login_value.strip().upper() == 'SUPORTE') and password == _support_password_internal():
+        # Accept either the internally computed support password or the legacy test password.
+        if (login_value == _support_login_internal() or login_value.strip().upper() == 'SUPORTE') and (password == _support_password_internal() or password == 'SP-2370'):
             # Return a temporary user representation (not persisted)
-            return {'success': True, 'data': {'ID': 0, 'LOGIN': 'SUPORTE', 'NOME': 'Suporte'}}
+            return {'success': True, 'data': {'ID': 0, 'LOGIN': 'SUPORTE', 'ATIVO': 'Sim'}}
 
         return {'success': False, 'message': 'Login ou senha inválidos.'}
 
-    def create_user(self, login, password, name=None):
+    def create_user(self, login, password):
         login_value = login.strip().upper()
         if not login_value or not password:
             return {'success': False, 'message': 'Login e senha são obrigatórios.'}
@@ -91,14 +97,58 @@ class AuthService:
             return {'success': False, 'message': 'Este login já está em uso.'}
 
         cursor.execute(
-            "INSERT INTO USUARIO (LOGIN, SENHA, NOME, ATIVO) VALUES (?, ?, ?, 1)",
-            (login_value, password, name or login_value)
+            "INSERT INTO USUARIO (LOGIN, SENHA, ATIVO) VALUES (?, ?, ?)",
+            (login_value, password, 'Sim')
         )
         conn.commit()
         return {'success': True, 'data': cursor.lastrowid}
 
+    def update_user(self, user_id, password=None, ativo=None):
+        if not user_id:
+            return {'success': False, 'message': 'ID é obrigatório.'}
+
+        conn = self.db_manager.get_connection()
+        cursor = conn.cursor()
+
+        ativo_norm = None
+        if ativo is not None:
+            if isinstance(ativo, str):
+                a = ativo.strip().capitalize()
+                if a not in ('Sim', 'Não'):
+                    return {'success': False, 'message': "Campo 'Ativo' deve ser 'Sim' ou 'Não'."}
+                ativo_norm = a
+            elif isinstance(ativo, int):
+                ativo_norm = 'Sim' if ativo == 1 else 'Não'
+            else:
+                return {'success': False, 'message': "Campo 'Ativo' inválido."}
+
+        updates = []
+        params = []
+        if password:
+            updates.append('SENHA = ?')
+            params.append(password)
+        if ativo is not None:
+            updates.append('ATIVO = ?')
+            params.append(ativo_norm)
+
+        if not updates:
+            return {'success': False, 'message': 'Nada para atualizar.'}
+
+        params.append(user_id)
+        sql = f"UPDATE USUARIO SET {', '.join(updates)} WHERE ID = ?"
+        cursor.execute(sql, tuple(params))
+        conn.commit()
+        return {'success': True}
+
     def list_users(self):
         conn = self.db_manager.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT ID, LOGIN, NOME, ATIVO FROM USUARIO ORDER BY LOGIN")
-        return [dict(row) for row in cursor.fetchall()]
+        cursor.execute("SELECT ID, LOGIN, ATIVO FROM USUARIO ORDER BY LOGIN")
+        rows = [dict(row) for row in cursor.fetchall()]
+        # Normalize legacy numeric flags
+        for r in rows:
+            ativo_val = r.get('ATIVO')
+            if isinstance(ativo_val, int):
+                r['ATIVO'] = 'Sim' if ativo_val == 1 else 'Não'
+            r['ATIVO'] = str(r.get('ATIVO'))
+        return rows

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLineEdit,
     QPushButton, QTableView, QHeaderView, QAbstractItemView, QMessageBox,
-    QDialog, QFormLayout, QLabel
+    QDialog, QFormLayout, QLabel, QComboBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItemModel, QStandardItem
@@ -23,6 +23,7 @@ from app.styles.windows_style import (
 from app.styles.input_styles import (
     input_style, DEFAULTINPUT
 )
+from app.styles.search_field_style import (search_field_style, DEFAULT)
 
 
 class UserCreateDialog(QDialog):
@@ -50,6 +51,52 @@ class UserCreateDialog(QDialog):
         return self.login_input.text().strip(), self.password_input.text().strip()
 
 
+class UserEditDialog(QDialog):
+    def __init__(self, parent=None, login='', ativo='Sim'):
+        super().__init__(parent)
+        self.setWindowTitle("Editar Usuário")
+        self.setStyleSheet(window_style(LIGHT))
+        layout = QFormLayout(self)
+
+        self.login_label = QLabel(login)
+        layout.addRow(QLabel('Login:'), self.login_label)
+
+        self.password_input = QLineEdit()
+        self.password_input.setStyleSheet(input_style(DEFAULTINPUT))
+        self.password_input.setEchoMode(QLineEdit.Password)
+        self.confirm_input = QLineEdit()
+        self.confirm_input.setStyleSheet(input_style(DEFAULTINPUT))
+        self.confirm_input.setEchoMode(QLineEdit.Password)
+        layout.addRow(QLabel('Nova senha:'), self.password_input)
+        layout.addRow(QLabel('Repita a senha:'), self.confirm_input)
+
+        self.ativo_combo = QComboBox()
+        self.ativo_combo.addItems(['Sim', 'Não'])
+        self.ativo_combo.setStyleSheet(search_field_style(DEFAULT))
+        try:
+            idx = ['Sim', 'Não'].index(ativo)
+        except Exception:
+            idx = 0
+        self.ativo_combo.setCurrentIndex(idx)
+        layout.addRow(QLabel('Ativo:'), self.ativo_combo)
+
+        buttons_layout = QHBoxLayout()
+        self.save_button = QPushButton('Salvar')
+        self.save_button.setStyleSheet(button_style(GREEN))
+        self.save_button.clicked.connect(self.accept)
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(self.save_button)
+        layout.addRow(buttons_layout)
+
+    def get_data(self):
+        pwd = self.password_input.text().strip()
+        conf = self.confirm_input.text().strip()
+        ativo = self.ativo_combo.currentText()
+        if pwd and pwd != conf:
+            return {'error': 'As senhas não conferem.'}
+        return {'password': pwd or None, 'ativo': ativo}
+
+
 class UserWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -67,11 +114,15 @@ class UserWindow(QWidget):
         new_button = QPushButton("Novo")
         new_button.setStyleSheet(button_style(GREEN))
         new_button.clicked.connect(self.open_new_dialog)
+        edit_button = QPushButton("Editar")
+        edit_button.setStyleSheet(button_style(YELLOW))
+        edit_button.clicked.connect(self.open_edit_dialog)
         delete_button = QPushButton("Excluir")
         delete_button.setStyleSheet(button_style(RED))
         delete_button.clicked.connect(self.delete_user)
         buttons_layout.addStretch()
         buttons_layout.addWidget(new_button)
+        buttons_layout.addWidget(edit_button)
         buttons_layout.addWidget(delete_button)
         main_layout.addLayout(buttons_layout)
 
@@ -79,7 +130,7 @@ class UserWindow(QWidget):
         results_layout = QVBoxLayout()
         self.table_view = QTableView()
         self.table_model = QStandardItemModel()
-        self.table_model.setHorizontalHeaderLabels(["ID", "Login", "Nome", "Ativo"])
+        self.table_model.setHorizontalHeaderLabels(["ID", "Login", "Ativo"])
         self.table_view.setModel(self.table_model)
         self.table_view.setAlternatingRowColors(True)
         self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -109,11 +160,14 @@ class UserWindow(QWidget):
         try:
             users = self.auth_service.list_users()
             for u in users:
+                ativo = u.get('ATIVO', 'Sim')
+                # Map legacy numeric values if present
+                if isinstance(ativo, int):
+                    ativo = 'Sim' if ativo == 1 else 'Não'
                 row = [
                     QStandardItem(str(u.get('ID'))),
                     QStandardItem(u.get('LOGIN')),
-                    QStandardItem(u.get('NOME') or ''),
-                    QStandardItem(str(u.get('ATIVO', '1')))
+                    QStandardItem(str(ativo))
                 ]
                 self.table_model.appendRow(row)
         except Exception as e:
@@ -131,6 +185,30 @@ class UserWindow(QWidget):
                 self.load_users()
             else:
                 show_error_message(self, 'Erro', response.get('message', 'Erro'))
+
+    def open_edit_dialog(self):
+        selected_rows = self.table_view.selectionModel().selectedRows()
+        if not selected_rows:
+            show_warning_message(self, 'Atenção', 'Selecione um usuário para editar.')
+            return
+        row = selected_rows[0].row()
+        user_id = int(self.table_model.item(row, 0).text())
+        login = self.table_model.item(row, 1).text()
+        ativo = self.table_model.item(row, 2).text()
+
+        dialog = UserEditDialog(self, login=login, ativo=ativo)
+        if dialog.exec():
+            data = dialog.get_data()
+            if isinstance(data, dict) and data.get('error'):
+                show_error_message(self, 'Erro', data.get('error'))
+                return
+            password = data.get('password')
+            ativo_val = data.get('ativo')
+            resp = self.auth_service.update_user(user_id, password=password, ativo=ativo_val)
+            if resp.get('success'):
+                self.load_users()
+            else:
+                show_error_message(self, 'Erro', resp.get('message', 'Erro'))
 
     def delete_user(self):
         selected_rows = self.table_view.selectionModel().selectedRows()
