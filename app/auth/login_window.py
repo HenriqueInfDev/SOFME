@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
-    QLabel, QMessageBox, QHBoxLayout, QFrame
+    QLabel, QMessageBox, QHBoxLayout, QFrame, QApplication
 )
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSizePolicy
@@ -18,9 +18,10 @@ class LoginWindow(QWidget):
     def __init__(self, on_success=None):
         super().__init__()
         self.on_success = on_success
-        self.auth_service = AuthService()
+        self.auth_service = None
         self.setWindowTitle('Login - SOFME')
         self.setGeometry(300, 200, 420, 320)
+        self.setWindowFlags(self.windowFlags() | Qt.Window)
         # Use the app window style but force a gray background for the login window
         self.setObjectName('loginWindowRoot')
         self.setStyleSheet(window_style(LIGHT) + " #loginWindowRoot { background-color: #d1d5db; }")
@@ -117,23 +118,25 @@ class LoginWindow(QWidget):
             self.loading_overlay = LoadingOverlay(self, message='Autenticando...')
         self.loading_overlay.setMessage('Autenticando...')
         self.loading_overlay.show()
+        self.loading_overlay.raise_()
+        QApplication.processEvents()
 
         # Use a QThread subclass to avoid cross-thread parenting issues
         class AuthThread(QThread):
             finished_signal = Signal(dict)
-            def __init__(self, service, login, password):
+            def __init__(self, login, password):
                 super().__init__()
-                self.service = service
                 self.login = login
                 self.password = password
             def run(self):
                 try:
-                    res = self.service.authenticate_user(self.login, self.password)
+                    service = AuthService()
+                    res = service.authenticate_user(self.login, self.password)
                 except Exception as e:
                     res = {'success': False, 'message': str(e)}
                 self.finished_signal.emit(res)
 
-        self.auth_thread = AuthThread(self.auth_service, login, password)
+        self.auth_thread = AuthThread(login, password)
 
         def on_auth_finished(result):
             self.loading_overlay.hide()

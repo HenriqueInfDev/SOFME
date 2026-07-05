@@ -224,7 +224,7 @@ class ItemSearchWindow(QWidget):
         item_data = self.table_model.item(model_index.row(), 0).data(Qt.UserRole)
         self.show_edit_window(item_id=item_data['ID'])
 
-    def show_edit_window(self, item_id):
+    def show_edit_window(self, item_id, copy_from=None):
         """Abre a janela de edição, garantindo que apenas uma instância exista e limpando a referência quando fechada."""
         from .ui_form_window import ItemFormWindow
 
@@ -236,7 +236,7 @@ class ItemSearchWindow(QWidget):
             self.edit_window.deleteLater()
             self.edit_window = None
 
-        self.edit_window = ItemFormWindow(item_id=item_id)
+        self.edit_window = ItemFormWindow(item_id=item_id, copy_from=copy_from)
         self.edit_window.setAttribute(Qt.WA_DeleteOnClose)
         self.edit_window.destroyed.connect(self.on_edit_window_closed)
         self.edit_window.show()

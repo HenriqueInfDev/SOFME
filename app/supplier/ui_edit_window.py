@@ -40,6 +40,7 @@ class SupplierEditWindow(QWidget):
         self.setWindowTitle(title)
         self.setGeometry(250, 250, 600, 400)
         self.setStyleSheet(window_style(LIGHT))
+        self.setWindowFlags(self.windowFlags() | Qt.Window)
         self.setup_ui()
 
         if self.current_supplier_id:
@@ -228,7 +229,7 @@ class SupplierEditWindow(QWidget):
         razao_social = self.company_name_input.text()
         nome_fantasia = self.fantasy_name_input.text()
         status = self.status_combo.currentText()
-        cnpj = self.cnpj_input.text()
+        cnpj = self.cnpj_input.text().strip()
         phone = self.phone_input.text()
         email = self.email_input.text()
         address = {

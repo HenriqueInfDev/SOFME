@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout, QLineEdit,
     QComboBox, QPushButton, QMessageBox, QHeaderView, QTabWidget,
-    QTableWidget, QTableWidgetItem, QLabel, QDoubleSpinBox, QAbstractItemView
+    QTableWidget, QTableWidgetItem, QLabel, QDoubleSpinBox, QAbstractItemView, QCheckBox
 )
 from decimal import Decimal, InvalidOperation
 from PySide6.QtCore import Qt
@@ -48,17 +48,19 @@ def format_decimal_text(value, min_decimals=2):
     return f"{text}.{'0' * min_decimals}"
 
 class ItemFormWindow(QWidget):
-    def __init__(self, item_id=None):
+    def __init__(self, item_id=None, copy_from=None):
         super().__init__()
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.item_service = ItemService()
         self.current_item_id = item_id
         self.has_unsaved_changes = False
+        self.copy_from = copy_from
 
         self.setWindowTitle(f"Editando Item #{item_id}" if item_id else "Novo Item")
         self.setGeometry(200, 200, 700, 600)
         self.setStyleSheet(window_style(LIGHT))
+        self.setWindowFlags(self.windowFlags() | Qt.Window)
 
         # Layout Principal
         self.main_layout = QVBoxLayout(self)
@@ -79,6 +81,8 @@ class ItemFormWindow(QWidget):
         # Carregar dados
         self.populate_units_combobox()
         self.load_item_data()
+        if self.copy_from:
+            self._apply_copy_data(self.copy_from)
         
         # Conectar sinal da ComboBox de tipo
         self.type_combo.currentTextChanged.connect(self.toggle_composition_tab)
@@ -92,16 +96,18 @@ class ItemFormWindow(QWidget):
         self.clear_supplier_button.clicked.connect(self.clear_selected_supplier)
         
         # Conectar sinais para detectar alterações
+        self.code_internal_input.textChanged.connect(self._set_unsaved_changes)
         self.description_input.textChanged.connect(self._set_unsaved_changes)
         self.type_combo.currentIndexChanged.connect(self._set_unsaved_changes)
         self.unit_combo.currentIndexChanged.connect(self._set_unsaved_changes)
+        self.non_stock_checkbox.toggled.connect(self._set_unsaved_changes)
         # A alteração da composição será tratada nos métodos add/remove
 
     def _set_unsaved_changes(self):
         """Marca o estado como 'não salvo' e atualiza o título da janela."""
         if not self.has_unsaved_changes:
             self.has_unsaved_changes = True
-            self.setWindowTitle(self.windowTitle() + "*")
+            self.setWindowTitle(self.windowTitle().rstrip('*') + "*")
 
     def closeEvent(self, event):
         """Sobrescreve o evento de fechar a janela para verificar alterações."""
@@ -143,6 +149,10 @@ class ItemFormWindow(QWidget):
         save_button.setStyleSheet(button_style(GREEN))
         save_button.clicked.connect(self.save_item)
 
+        copy_button = QPushButton("Copiar Produto")
+        copy_button.setStyleSheet(button_style(YELLOW))
+        copy_button.clicked.connect(self.copy_item)
+
         delete_button = QPushButton("Excluir")
         delete_button.setStyleSheet(button_style(RED))
         delete_button.clicked.connect(self.delete_item)
@@ -154,6 +164,7 @@ class ItemFormWindow(QWidget):
         header_layout.addStretch()
         header_layout.addWidget(new_button)
         header_layout.addWidget(save_button)
+        header_layout.addWidget(copy_button)
         header_layout.addWidget(delete_button)
         header_layout.addWidget(close_button)
         
@@ -172,6 +183,12 @@ class ItemFormWindow(QWidget):
         self.type_combo.addItems(["Insumo", "Produto", "Ambos"])
         self.unit_combo = QComboBox()
         self.unit_combo.setStyleSheet(search_field_style(DEFAULT))
+        self.non_stock_checkbox = QCheckBox("Produto não estocável")
+        self.non_stock_checkbox.setStyleSheet(
+            "QCheckBox { spacing: 8px; padding: 4px 6px; }"
+            "QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #000000; border-radius: 3px; background-color: #FFFFFF; }"
+            "QCheckBox::indicator:checked { background-color: #2563EB; }"
+        )
 
         # Novo layout para o fornecedor
         supplier_layout = QHBoxLayout()
@@ -192,6 +209,7 @@ class ItemFormWindow(QWidget):
         layout.addRow("Tipo de Item:", self.type_combo)
         layout.addRow("Unidade:", self.unit_combo)
         layout.addRow("Fornecedor Padrão:", supplier_layout)
+        layout.addRow("", self.non_stock_checkbox)
 
         self.tab_widget.addTab(main_widget, "Principal")
 
@@ -288,27 +306,54 @@ class ItemFormWindow(QWidget):
         else:
             show_error_message(self, "Error", response["message"])
 
+    def _ensure_mapping(self, item_data):
+        if hasattr(item_data, 'keys'):
+            return {key: item_data[key] for key in item_data.keys()}
+        return dict(item_data or {})
+
+    def _apply_copy_data(self, item_data):
+        self.current_item_id = None
+        self.setWindowTitle("Novo Item")
+        item_data = self._ensure_mapping(item_data)
+        self.code_internal_input.setText(item_data.get('CODIGO_INTERNO') or '')
+        self.description_input.setText(f"{item_data.get('DESCRICAO') or ''} (Cópia)")
+        self.type_combo.setCurrentText(item_data.get('TIPO_ITEM') or 'Insumo')
+        self.non_stock_checkbox.setChecked(bool(item_data.get('NAO_ESTOCAVEL')))
+        self.selected_supplier_id = item_data.get('ID_FORNECEDOR_PADRAO')
+        if self.selected_supplier_id:
+            from app.supplier.service import SupplierService
+            supplier_service = SupplierService()
+            supplier_response = supplier_service.get_supplier_by_id(self.selected_supplier_id)
+            if supplier_response['success']:
+                supplier = supplier_response['data']
+                self.supplier_display.setText(supplier.get('NOME_FANTASIA') or supplier.get('RAZAO_SOCIAL') or '')
+        self.composition_table.setRowCount(0)
+        self.update_total_cost()
+        self.toggle_composition_tab()
+        self._set_unsaved_changes()
+
     def load_item_data(self):
         if self.current_item_id:
             response = self.item_service.get_item_by_id(self.current_item_id)
             if response["success"]:
-                item = response["data"]
-                self.code_internal_input.setText(item['CODIGO_INTERNO'])
-                self.description_input.setText(item['DESCRICAO'])
-                self.type_combo.setCurrentText(item['TIPO_ITEM'])
+                item = self._ensure_mapping(response["data"])
+                self.code_internal_input.setText(item.get('CODIGO_INTERNO') or '')
+                self.description_input.setText(item.get('DESCRICAO') or '')
+                self.type_combo.setCurrentText(item.get('TIPO_ITEM') or 'Insumo')
+                self.non_stock_checkbox.setChecked(bool(item.get('NAO_ESTOCAVEL')))
                 
-                unit_index = self.unit_combo.findData(item['ID_UNIDADE'])
+                unit_index = self.unit_combo.findData(item.get('ID_UNIDADE'))
                 if unit_index != -1:
                     self.unit_combo.setCurrentIndex(unit_index)
 
-                self.selected_supplier_id = item['ID_FORNECEDOR_PADRAO']
+                self.selected_supplier_id = item.get('ID_FORNECEDOR_PADRAO')
                 if self.selected_supplier_id:
                     from app.supplier.service import SupplierService
                     supplier_service = SupplierService()
                     supplier_response = supplier_service.get_supplier_by_id(self.selected_supplier_id)
                     if supplier_response["success"]:
                         supplier = supplier_response["data"]
-                        self.supplier_display.setText(supplier['NOME_FANTASIA'] or supplier['RAZAO_SOCIAL'])
+                        self.supplier_display.setText(supplier.get('NOME_FANTASIA') or supplier.get('RAZAO_SOCIAL') or '')
                 
                 self.load_composition_data()
         
@@ -501,7 +546,32 @@ class ItemFormWindow(QWidget):
         self.supplier_display.clear()
         self._set_unsaved_changes()
 
+    def _confirm_unsaved_changes(self, action_message):
+        if not self.has_unsaved_changes:
+            return True
+
+        buttons_config = [
+            {'text': 'Salvar', 'role': QMessageBox.AcceptRole, 'style': GREEN, 'result': QMessageBox.Save},
+            {'text': 'Descartar', 'role': QMessageBox.DestructiveRole, 'style': RED, 'result': QMessageBox.Discard},
+            {'text': 'Cancelar', 'role': QMessageBox.RejectRole, 'style': GRAY, 'result': QMessageBox.Cancel}
+        ]
+        reply = show_custom_confirmation(
+            self,
+            'Alterações Não Salvas',
+            action_message,
+            buttons_config
+        )
+        if reply == QMessageBox.Save:
+            self.save_item()
+            return not self.has_unsaved_changes
+        if reply == QMessageBox.Cancel:
+            return False
+        return True
+
     def new_item(self):
+        if not self._confirm_unsaved_changes('Deseja salvar as alterações antes de criar um novo produto?'):
+            return
+
         self.current_item_id = None
         self.setWindowTitle("Novo Item")
         self.code_internal_input.clear()
@@ -510,16 +580,34 @@ class ItemFormWindow(QWidget):
         self.unit_combo.setCurrentIndex(0)
         self.supplier_display.clear()
         self.selected_supplier_id = None
+        self.non_stock_checkbox.setChecked(False)
         self.composition_table.setRowCount(0)
         self.update_total_cost()
         self.toggle_composition_tab()
         self.description_input.setFocus()
         self._clear_material_form()
 
-        # Reseta o estado para 'salvo'
         self.has_unsaved_changes = False
         self.setWindowTitle("Novo Item")
 
+
+    def copy_item(self):
+        if not self._confirm_unsaved_changes('Deseja salvar as alterações antes de copiar este produto?'):
+            return
+
+        if not self.current_item_id:
+            show_warning_message(self, 'Atenção', 'Selecione ou salve um produto antes de copiar.')
+            return
+
+        response = self.item_service.get_item_by_id(self.current_item_id)
+        if not response['success']:
+            show_error_message(self, 'Erro', response['message'])
+            return
+
+        self.current_item_id = None
+        self.has_unsaved_changes = False
+        self.setWindowTitle('Novo Item')
+        self._apply_copy_data(response['data'])
 
     def save_item(self):
         # Coleta dados da aba Principal
@@ -534,15 +622,17 @@ class ItemFormWindow(QWidget):
             return
 
         # Salva o item principal
+        nao_estocavel = self.non_stock_checkbox.isChecked()
+
         if self.current_item_id is None:  # Novo item
-            response = self.item_service.add_item(codigo_interno, description, item_type, unit_id, supplier_id)
+            response = self.item_service.add_item(codigo_interno, description, item_type, unit_id, supplier_id, nao_estocavel)
             if response["success"]:
                 self.current_item_id = response["data"]
             else:
                 show_error_message(self, "Error", response["message"])
                 return
         else:  # Item existente
-            response = self.item_service.update_item(self.current_item_id, codigo_interno, description, item_type, unit_id, supplier_id)
+            response = self.item_service.update_item(self.current_item_id, codigo_interno, description, item_type, unit_id, supplier_id, nao_estocavel)
             if not response["success"]:
                 show_error_message(self, "Error", response["message"])
                 return

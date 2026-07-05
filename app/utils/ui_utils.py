@@ -274,7 +274,7 @@ class LoadingOverlay(QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        self.setWindowFlags(self.windowFlags() & ~Qt.FramelessWindowHint)
         self.message = message
         self.spinner = Spinner(self)
         self.label = QLabel(message, self)

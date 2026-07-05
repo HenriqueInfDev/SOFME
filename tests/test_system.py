@@ -129,6 +129,16 @@ class TestItemService(BaseDatabaseTest):
         self.assertEqual(item['SALDO_ESTOQUE'], 10)
         self.assertEqual(item['CUSTO_MEDIO'], 5)
 
+    def test_get_item_by_id_returns_mapping_for_ui(self):
+        unit_service = UnitService()
+        item_service = ItemService()
+        unit_id = unit_service.add_unit('UI Unit', 'UI')['data']
+        item_id = item_service.add_item('codUI', 'Item UI', 'Insumo', unit_id, None)['data']
+
+        result = item_service.get_item_by_id(item_id)
+        self.assertTrue(result['success'])
+        self.assertTrue(hasattr(result['data'], 'get'))
+
     def test_manual_input_material_updates_average_cost_with_different_prices(self):
         unit_service = UnitService()
         item_service = ItemService()
@@ -147,6 +157,15 @@ class TestItemService(BaseDatabaseTest):
 
 
 class TestSupplierService(BaseDatabaseTest):
+    def test_add_supplier_allows_blank_cnpj(self):
+        supplier_service = SupplierService()
+        supplier_data = {
+            'logradouro': 'Rua A', 'numero': '1', 'complemento': '',
+            'bairro': 'Bairro', 'cidade': 'Cidade', 'uf': 'SP', 'cep': '00000-000'
+        }
+        result = supplier_service.add_supplier('Fornecedor Sem CNPJ', 'Fantasia', '   ', '999999999', 'email@test.com', supplier_data, 'Ativo')
+        self.assertTrue(result['success'])
+
     def test_add_get_update_delete_supplier(self):
         supplier_service = SupplierService()
         supplier_data = {

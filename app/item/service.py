@@ -7,12 +7,21 @@ class ItemService:
         self.item_repository = ItemRepository()
         self.unit_service = UnitService()
 
-    def add_item(self, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao):
+    def _normalize_item(self, item):
+        if item is None:
+            return None
+        if isinstance(item, dict):
+            return item
+        if hasattr(item, 'keys'):
+            return {key: item[key] for key in item.keys()}
+        return dict(item)
+
+    def add_item(self, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel=False):
         if not all([description, item_type, unit_id]):
             return {"success": False, "message": "Descrição, Tipo e Unidade são obrigatórios."}
         
         try:
-            new_id = self.item_repository.add(codigo_interno, description, item_type, unit_id, id_fornecedor_padrao)
+            new_id = self.item_repository.add(codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel)
             if new_id:
                 return {"success": True, "data": new_id, "message": "Item adicionado com sucesso."}
             else:
@@ -31,7 +40,7 @@ class ItemService:
         try:
             item = self.item_repository.get_by_id(item_id)
             if item:
-                return {"success": True, "data": item}
+                return {"success": True, "data": self._normalize_item(item)}
             else:
                 return {"success": False, "message": "Item não encontrado."}
         except Exception as e:
@@ -40,12 +49,12 @@ class ItemService:
     def list_units(self):
         return self.unit_service.get_all_units()
 
-    def update_item(self, item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao):
+    def update_item(self, item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel=False):
         if not all([item_id, description, item_type, unit_id]):
             return {"success": False, "message": "Descrição, Tipo e Unidade são obrigatórios."}
         
         try:
-            if self.item_repository.update(item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao):
+            if self.item_repository.update(item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel):
                 return {"success": True, "message": "Item atualizado com sucesso."}
             else:
                 return {"success": False, "message": "Já existe um item com esta descrição."}

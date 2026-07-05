@@ -89,6 +89,7 @@ class DatabaseManager:
                         ID INTEGER PRIMARY KEY AUTOINCREMENT, CODIGO_INTERNO TEXT, DESCRICAO TEXT NOT NULL UNIQUE,
                         TIPO_ITEM TEXT NOT NULL CHECK(TIPO_ITEM IN ('Insumo', 'Produto', 'Ambos')), ID_UNIDADE INTEGER NOT NULL,
                         ID_FORNECEDOR_PADRAO INTEGER, SALDO_ESTOQUE REAL NOT NULL DEFAULT 0, CUSTO_MEDIO REAL NOT NULL DEFAULT 0,
+                        NAO_ESTOCAVEL INTEGER NOT NULL DEFAULT 0,
                         FOREIGN KEY (ID_UNIDADE) REFERENCES UNIDADE (ID) ON DELETE RESTRICT,
                         FOREIGN KEY (ID_FORNECEDOR_PADRAO) REFERENCES FORNECEDOR (ID) ON DELETE RESTRICT )''',
             "FORNECEDOR": '''CREATE TABLE IF NOT EXISTS FORNECEDOR (
@@ -185,6 +186,10 @@ class DatabaseManager:
             self._migrate_v3(cursor)
             cursor.execute("PRAGMA user_version = 3")
 
+        if db_version < 4:
+            self._migrate_v4(cursor)
+            cursor.execute("PRAGMA user_version = 4")
+
         self.connection.commit()
 
     def _migrate_v1(self, cursor):
@@ -258,6 +263,14 @@ class DatabaseManager:
             cursor.execute('''
                 ALTER TABLE ORDEMPRODUCAO
                 ADD COLUMN ID_LINHA_PRODUCAO INTEGER REFERENCES LINHAPRODUCAO(ID) ON DELETE SET NULL
+            ''')
+
+    def _migrate_v4(self, cursor):
+        """Adicionar flag de controle para itens não estocáveis."""
+        if not self._column_exists(cursor, 'ITEM', 'NAO_ESTOCAVEL'):
+            cursor.execute('''
+                ALTER TABLE ITEM
+                ADD COLUMN NAO_ESTOCAVEL INTEGER NOT NULL DEFAULT 0
             ''')
 
     def _column_exists(self, cursor, table_name, column_name):

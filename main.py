@@ -267,9 +267,7 @@ import traceback
 
 def main():
     try:
-        from app.database.db import get_db_manager
         from app.auth.login_window import LoginWindow
-        get_db_manager()
 
         app = QApplication(sys.argv)
 

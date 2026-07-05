@@ -6,15 +6,23 @@ class SupplierService:
     def __init__(self):
         self.supplier_repository = SupplierRepository()
 
+    @staticmethod
+    def _normalize_optional_document(value):
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
     def add_supplier(self, razao_social, nome_fantasia, cnpj, phone, email, address, status):
         if not razao_social:
             return {"success": False, "message": "A Razão Social do fornecedor é obrigatória."}
-        
-        if cnpj and not validate_cpf_cnpj(cnpj)[0]:
+
+        normalized_cnpj = self._normalize_optional_document(cnpj)
+        if normalized_cnpj and not validate_cpf_cnpj(normalized_cnpj)[0]:
             return {"success": False, "message": "CPF/CNPJ inválido."}
 
         try:
-            new_id = self.supplier_repository.add(razao_social, nome_fantasia, cnpj, phone, email, address, status)
+            new_id = self.supplier_repository.add(razao_social, nome_fantasia, normalized_cnpj, phone, email, address, status)
             if new_id:
                 return {"success": True, "data": new_id, "message": "Fornecedor adicionado com sucesso."}
             else:
@@ -43,11 +51,12 @@ class SupplierService:
         if not razao_social:
             return {"success": False, "message": "A Razão Social do fornecedor é obrigatória."}
 
-        if cnpj and not validate_cpf_cnpj(cnpj)[0]:
+        normalized_cnpj = self._normalize_optional_document(cnpj)
+        if normalized_cnpj and not validate_cpf_cnpj(normalized_cnpj)[0]:
             return {"success": False, "message": "CPF/CNPJ inválido."}
         
         try:
-            if self.supplier_repository.update(supplier_id, razao_social, nome_fantasia, cnpj, phone, email, address, status):
+            if self.supplier_repository.update(supplier_id, razao_social, nome_fantasia, normalized_cnpj, phone, email, address, status):
                 return {"success": True, "message": "Fornecedor atualizado com sucesso."}
             else:
                 return {"success": False, "message": "Já existe um fornecedor com esta Razão Social ou CNPJ."}

@@ -7,12 +7,12 @@ class ItemRepository:
         self.db_manager = get_db_manager()
         self.connection = self.db_manager.get_connection()
 
-    def add(self, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao):
+    def add(self, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel=False):
         cursor = self.connection.cursor()
         try:
             cursor.execute(
-                "INSERT INTO ITEM (CODIGO_INTERNO, DESCRICAO, TIPO_ITEM, ID_UNIDADE, ID_FORNECEDOR_PADRAO) VALUES (?, ?, ?, ?, ?)",
-                (codigo_interno, description, item_type, unit_id, id_fornecedor_padrao)
+                "INSERT INTO ITEM (CODIGO_INTERNO, DESCRICAO, TIPO_ITEM, ID_UNIDADE, ID_FORNECEDOR_PADRAO, NAO_ESTOCAVEL) VALUES (?, ?, ?, ?, ?, ?)",
+                (codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, 1 if nao_estocavel else 0)
             )
             self.connection.commit()
             return cursor.lastrowid
@@ -23,7 +23,7 @@ class ItemRepository:
     def get_all(self):
         cursor = self.connection.cursor()
         cursor.execute("""
-            SELECT i.ID, i.CODIGO_INTERNO, i.DESCRICAO, i.TIPO_ITEM, u.SIGLA, i.SALDO_ESTOQUE, i.CUSTO_MEDIO
+            SELECT i.ID, i.CODIGO_INTERNO, i.DESCRICAO, i.TIPO_ITEM, u.SIGLA, i.SALDO_ESTOQUE, i.CUSTO_MEDIO, i.ID_FORNECEDOR_PADRAO, i.NAO_ESTOCAVEL
             FROM ITEM i
             JOIN UNIDADE u ON i.ID_UNIDADE = u.ID
             ORDER BY i.DESCRICAO
@@ -35,12 +35,12 @@ class ItemRepository:
         cursor.execute("SELECT * FROM ITEM WHERE ID = ?", (item_id,))
         return cursor.fetchone()
 
-    def update(self, item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao):
+    def update(self, item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel=False):
         cursor = self.connection.cursor()
         try:
             cursor.execute(
-                "UPDATE ITEM SET CODIGO_INTERNO = ?, DESCRICAO = ?, TIPO_ITEM = ?, ID_UNIDADE = ?, ID_FORNECEDOR_PADRAO = ? WHERE ID = ?",
-                (codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, item_id)
+                "UPDATE ITEM SET CODIGO_INTERNO = ?, DESCRICAO = ?, TIPO_ITEM = ?, ID_UNIDADE = ?, ID_FORNECEDOR_PADRAO = ?, NAO_ESTOCAVEL = ? WHERE ID = ?",
+                (codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, 1 if nao_estocavel else 0, item_id)
             )
             self.connection.commit()
             return True
@@ -76,7 +76,7 @@ class ItemRepository:
 
     def search(self, search_type, search_text):
         cursor = self.connection.cursor()
-        query = "SELECT i.ID, i.CODIGO_INTERNO, i.DESCRICAO, i.TIPO_ITEM, u.SIGLA, i.SALDO_ESTOQUE, i.CUSTO_MEDIO FROM ITEM i JOIN UNIDADE u ON i.ID_UNIDADE = u.ID"
+        query = "SELECT i.ID, i.CODIGO_INTERNO, i.DESCRICAO, i.TIPO_ITEM, u.SIGLA, i.SALDO_ESTOQUE, i.CUSTO_MEDIO, i.ID_FORNECEDOR_PADRAO, i.NAO_ESTOCAVEL FROM ITEM i JOIN UNIDADE u ON i.ID_UNIDADE = u.ID"
         
         allowed_types = {
             "ID": "i.ID",
