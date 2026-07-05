@@ -5,6 +5,15 @@ class StockService:
     def __init__(self):
         self.stock_repository = StockRepository()
 
+    def _normalize_item(self, item):
+        if item is None:
+            return None
+        if isinstance(item, dict):
+            return item
+        if hasattr(item, 'keys'):
+            return {key: item[key] for key in item.keys()}
+        return dict(item)
+
     def create_entry(self, entry_date, typing_date, note_number, observacao):
         if not all([entry_date, typing_date]):
             return {"success": False, "message": "Data de entrada e data de digitação são obrigatórias."}
@@ -24,9 +33,9 @@ class StockService:
         
         try:
             for item in items:
-                item_details = self.stock_repository.get_item_details(item['id_insumo'])
-                if item_details and item_details['NAO_ESTOCAVEL']:
-                    return {"success": False, "message": f"O item '{item_details['DESCRICAO']}' está marcado como não estocável e não pode entrar em uma nota de insumo."}
+                item_details = self._normalize_item(self.stock_repository.get_item_details(item['id_insumo']))
+                if item_details and item_details.get('NAO_ESTOCAVEL'):
+                    return {"success": False, "message": f"O item '{item_details.get('DESCRICAO')}' está marcado como não estocável. Não é possivel dar entrada nele."}
 
             total_value = sum(item['quantidade'] * item['valor_unitario'] for item in items)
             self.stock_repository.update_entry_master(entry_id, entry_date, typing_date, note_number, observacao, total_value)
@@ -122,7 +131,7 @@ class StockService:
 
     def get_item_details(self, item_id):
         try:
-            item = self.stock_repository.get_item_details(item_id)
+            item = self._normalize_item(self.stock_repository.get_item_details(item_id))
             if item:
                 return {"success": True, "data": item}
             else:

@@ -14,8 +14,8 @@ class SupplierService:
         return normalized or None
 
     def add_supplier(self, razao_social, nome_fantasia, cnpj, phone, email, address, status):
-        if not razao_social:
-            return {"success": False, "message": "A Razão Social do fornecedor é obrigatória."}
+        if not str(nome_fantasia or "").strip():
+            return {"success": False, "message": "O Nome Fantasia do fornecedor é obrigatório."}
 
         normalized_cnpj = self._normalize_optional_document(cnpj)
         if normalized_cnpj and not validate_cpf_cnpj(normalized_cnpj)[0]:
@@ -48,8 +48,8 @@ class SupplierService:
             return {"success": False, "message": f"Erro ao buscar fornecedor: {e}"}
 
     def update_supplier(self, supplier_id, razao_social, nome_fantasia, cnpj, phone, email, address, status):
-        if not razao_social:
-            return {"success": False, "message": "A Razão Social do fornecedor é obrigatória."}
+        if not str(nome_fantasia or "").strip():
+            return {"success": False, "message": "O Nome Fantasia do fornecedor é obrigatório."}
 
         normalized_cnpj = self._normalize_optional_document(cnpj)
         if normalized_cnpj and not validate_cpf_cnpj(normalized_cnpj)[0]:

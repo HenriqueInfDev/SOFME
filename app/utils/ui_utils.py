@@ -2,7 +2,7 @@
 import os
 import re
 from decimal import Decimal, InvalidOperation
-from PySide6.QtWidgets import QMessageBox, QTableWidgetItem, QFileDialog, QDateEdit, QLineEdit, QPushButton, QCalendarWidget, QHBoxLayout, QWidget, QDialog, QVBoxLayout
+from PySide6.QtWidgets import QMessageBox, QTableWidgetItem, QFileDialog, QDateEdit, QLineEdit, QPushButton, QCalendarWidget, QHBoxLayout, QWidget, QDialog, QVBoxLayout, QApplication
 from PySide6.QtCore import Qt, QDate, QEvent
 from PySide6.QtGui import QFontMetrics, QIcon
 from app.styles.buttons_styles import button_style, GREEN, RED, YELLOW
@@ -67,6 +67,23 @@ def save_table_columns(table_view, table_name):
 
     widths = [table_view.columnWidth(i) for i in range(model.columnCount())]
     save_table_column_widths(table_name, widths)
+
+
+def center_widget_on_screen(widget):
+    if widget is None:
+        return
+    screen = widget.screen()
+    if screen is None:
+        screen = QApplication.primaryScreen()
+    if screen is None:
+        return
+    geometry = screen.availableGeometry()
+    widget.setGeometry(
+        geometry.center().x() - widget.width() // 2,
+        geometry.center().y() - widget.height() // 2,
+        widget.width(),
+        widget.height()
+    )
 
 
 def show_warning_message(parent, title, message):

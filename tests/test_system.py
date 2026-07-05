@@ -155,6 +155,17 @@ class TestItemService(BaseDatabaseTest):
         self.assertEqual(item['SALDO_ESTOQUE'], 30)
         self.assertAlmostEqual(item['CUSTO_MEDIO'], 170 / 30, places=6)
 
+    def test_adjust_stock_quantity_updates_stock(self):
+        unit_service = UnitService()
+        item_service = ItemService()
+        unit_id = unit_service.add_unit('Adjust Unit', 'AU')['data']
+        item_id = item_service.add_item('codAjuste', 'Item Ajuste', 'Insumo', unit_id, None)['data']
+
+        result = item_service.adjust_stock_quantity(item_id, 42)
+        self.assertTrue(result['success'])
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 42)
+
 
 class TestSupplierService(BaseDatabaseTest):
     def test_add_supplier_allows_blank_cnpj(self):
@@ -195,8 +206,35 @@ class TestSupplierService(BaseDatabaseTest):
         result = supplier_service.add_supplier('Fornecedor Inválido', 'Fantasia', '1234', '999999999', 'email@test.com', supplier_data, 'Ativo')
         self.assertFalse(result['success'])
 
+    def test_add_supplier_requires_fantasy_name(self):
+        supplier_service = SupplierService()
+        supplier_data = {
+            'logradouro': 'Rua A', 'numero': '1', 'complemento': '',
+            'bairro': 'Bairro', 'cidade': 'Cidade', 'uf': 'SP', 'cep': '00000-000'
+        }
+        result = supplier_service.add_supplier('Fornecedor Sem Nome Fantasia', '   ', '', '999999999', 'email@test.com', supplier_data, 'Ativo')
+        self.assertFalse(result['success'])
+
 
 class TestStockService(BaseDatabaseTest):
+    def test_get_item_details_returns_mapping_for_ui(self):
+        unit_service = UnitService()
+        supplier_service = SupplierService()
+        item_service = ItemService()
+        stock_service = StockService()
+
+        supplier_data = {
+            'logradouro': 'Rua A', 'numero': '1', 'complemento': '',
+            'bairro': 'Bairro', 'cidade': 'Cidade', 'uf': 'SP', 'cep': '00000-000'
+        }
+        supplier_id = supplier_service.add_supplier('Fornecedor Teste', 'Fantasia', '', '999999999', 'email@test.com', supplier_data, 'Ativo')['data']
+        unit_id = unit_service.add_unit('Estoque Unit', 'EU')['data']
+        item_id = item_service.add_item('codMap', 'Item Mapeado', 'Insumo', unit_id, supplier_id)['data']
+
+        result = stock_service.get_item_details(item_id)
+        self.assertTrue(result['success'])
+        self.assertTrue(hasattr(result['data'], 'get'))
+
     def test_non_stockable_item_does_not_change_stock_on_entry_finalization(self):
         unit_service = UnitService()
         supplier_service = SupplierService()

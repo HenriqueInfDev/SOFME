@@ -9,7 +9,7 @@ from PySide6.QtCore import QRegularExpression, Qt
 from app.supplier.service import SupplierService
 from app.utils.ui_utils import (
     show_error_message, show_success_message, 
-    show_confirmation_message
+    show_confirmation_message, center_widget_on_screen
 )
 
 from app.styles.buttons_styles import (
@@ -40,11 +40,16 @@ class SupplierEditWindow(QWidget):
         self.setWindowTitle(title)
         self.setGeometry(250, 250, 600, 400)
         self.setStyleSheet(window_style(LIGHT))
+        center_widget_on_screen(self)
         self.setWindowFlags(self.windowFlags() | Qt.Window)
         self.setup_ui()
 
         if self.current_supplier_id:
             self.load_supplier_data()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        center_widget_on_screen(self)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)

@@ -32,7 +32,12 @@ class ItemRepository:
 
     def get_by_id(self, item_id):
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM ITEM WHERE ID = ?", (item_id,))
+        cursor.execute("""
+            SELECT i.*, u.SIGLA
+            FROM ITEM i
+            LEFT JOIN UNIDADE u ON i.ID_UNIDADE = u.ID
+            WHERE i.ID = ?
+        """, (item_id,))
         return cursor.fetchone()
 
     def update(self, item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel=False):
@@ -103,6 +108,12 @@ class ItemRepository:
         cursor = self.connection.cursor()
         cursor.execute("UPDATE ITEM SET SALDO_ESTOQUE = ?, CUSTO_MEDIO = ? WHERE ID = ?", (new_balance, new_average_cost, item_id))
         self.connection.commit()
+
+    def update_stock_quantity(self, item_id, new_quantity):
+        cursor = self.connection.cursor()
+        cursor.execute("UPDATE ITEM SET SALDO_ESTOQUE = ? WHERE ID = ?", (new_quantity, item_id))
+        self.connection.commit()
+        return cursor.rowcount > 0
 
     def add_stock_movement(self, item_id, movement_type, quantity, unit_value):
         cursor = self.connection.cursor()

@@ -5,12 +5,13 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QLabel, QDoubleSpinBox, QAbstractItemView, QCheckBox
 )
 from decimal import Decimal, InvalidOperation
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from app.item.service import ItemService
 from app.production import composition_operations
 from app.utils.ui_utils import (
     NumericTableWidgetItem, show_error_message, show_success_message, 
-    show_confirmation_message, show_warning_message, show_custom_confirmation
+    show_confirmation_message, show_warning_message, show_custom_confirmation,
+    center_widget_on_screen
 )
 
 from app.styles.buttons_styles import (
@@ -58,9 +59,10 @@ class ItemFormWindow(QWidget):
         self.copy_from = copy_from
 
         self.setWindowTitle(f"Editando Item #{item_id}" if item_id else "Novo Item")
-        self.setGeometry(200, 200, 700, 600)
         self.setStyleSheet(window_style(LIGHT))
         self.setWindowFlags(self.windowFlags() | Qt.Window)
+        self.resize(700, 600)
+        center_widget_on_screen(self)
 
         # Layout Principal
         self.main_layout = QVBoxLayout(self)
@@ -77,6 +79,9 @@ class ItemFormWindow(QWidget):
 
         # --- Aba Composição ---
         self.create_composition_tab()
+
+        # --- Aba Reajuste de Estoque ---
+        self.create_stock_adjustment_tab()
 
         # Carregar dados
         self.populate_units_combobox()
@@ -184,6 +189,7 @@ class ItemFormWindow(QWidget):
         self.unit_combo = QComboBox()
         self.unit_combo.setStyleSheet(search_field_style(DEFAULT))
         self.non_stock_checkbox = QCheckBox("Produto não estocável")
+        self.non_stock_checkbox.toggled.connect(self.toggle_stock_adjustment_tab)
         self.non_stock_checkbox.setStyleSheet(
             "QCheckBox { spacing: 8px; padding: 4px 6px; }"
             "QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #000000; border-radius: 3px; background-color: #FFFFFF; }"
@@ -298,6 +304,36 @@ class ItemFormWindow(QWidget):
 
         self.tab_widget.addTab(self.composition_widget, "Composição")
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        center_widget_on_screen(self)
+
+    def create_stock_adjustment_tab(self):
+        self.stock_adjustment_widget = QWidget()
+        layout = QVBoxLayout(self.stock_adjustment_widget)
+        layout.setSpacing(12)
+
+        self.current_stock_label = QLabel("Estoque atual: --")
+        self.current_stock_label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        self.current_stock_unit_label = QLabel("Unidade: --")
+
+        form_layout = QHBoxLayout()
+        self.new_stock_input = QLineEdit()
+        self.new_stock_input.setStyleSheet(input_style(DEFAULTINPUT))
+        self.new_stock_input.setPlaceholderText("Novo estoque")
+        self.update_stock_button = QPushButton("Atualizar estoque")
+        self.update_stock_button.setStyleSheet(button_style(BLUE))
+        self.update_stock_button.clicked.connect(self.update_stock_quantity)
+        form_layout.addWidget(self.new_stock_input)
+        form_layout.addWidget(self.update_stock_button)
+
+        layout.addWidget(self.current_stock_label)
+        layout.addWidget(self.current_stock_unit_label)
+        layout.addLayout(form_layout)
+        layout.addStretch()
+
+        self.tab_widget.addTab(self.stock_adjustment_widget, "Reajuste de estoque")
+
     def populate_units_combobox(self):
         response = self.item_service.list_units()
         if response["success"]:
@@ -330,6 +366,7 @@ class ItemFormWindow(QWidget):
         self.composition_table.setRowCount(0)
         self.update_total_cost()
         self.toggle_composition_tab()
+        self.toggle_stock_adjustment_tab()
         self._set_unsaved_changes()
 
     def load_item_data(self):
@@ -347,6 +384,7 @@ class ItemFormWindow(QWidget):
                     self.unit_combo.setCurrentIndex(unit_index)
 
                 self.selected_supplier_id = item.get('ID_FORNECEDOR_PADRAO')
+                self._refresh_stock_adjustment_tab(item)
                 if self.selected_supplier_id:
                     from app.supplier.service import SupplierService
                     supplier_service = SupplierService()
@@ -378,6 +416,34 @@ class ItemFormWindow(QWidget):
         composition_tab_index = self.tab_widget.indexOf(self.composition_widget)
         is_visible = item_type in ("Produto", "Ambos")
         self.tab_widget.setTabVisible(composition_tab_index, is_visible)
+
+    def toggle_stock_adjustment_tab(self):
+        stock_tab_index = self.tab_widget.indexOf(self.stock_adjustment_widget)
+        is_non_stock = self.non_stock_checkbox.isChecked()
+        self.tab_widget.setTabVisible(stock_tab_index, not is_non_stock)
+
+    def _refresh_stock_adjustment_tab(self, item):
+        if not hasattr(self, 'current_stock_label'):
+            return
+        self.current_stock_label.setText(f"Estoque atual: {format_decimal_text(item.get('SALDO_ESTOQUE', 0))}")
+        self.current_stock_unit_label.setText(f"Unidade: {item.get('SIGLA', '') or '--'}")
+
+    def update_stock_quantity(self):
+        if self.current_item_id is None:
+            show_warning_message(self, 'Atenção', 'Salve o item antes de ajustar o estoque.')
+            return
+        try:
+            new_quantity = Decimal(self.new_stock_input.text().replace(',', '.'))
+        except Exception:
+            show_warning_message(self, 'Atenção', 'Informe uma quantidade válida.')
+            return
+        response = self.item_service.adjust_stock_quantity(self.current_item_id, float(new_quantity))
+        if response['success']:
+            show_success_message(self, 'Sucesso', response['message'])
+            self.current_stock_label.setText(f"Estoque atual: {format_decimal_text(new_quantity)}")
+            self.new_stock_input.clear()
+        else:
+            show_error_message(self, 'Erro', response['message'])
 
     def open_material_search(self):
         """Abre a janela de busca de itens em modo de seleção."""
@@ -584,6 +650,7 @@ class ItemFormWindow(QWidget):
         self.composition_table.setRowCount(0)
         self.update_total_cost()
         self.toggle_composition_tab()
+        self.toggle_stock_adjustment_tab()
         self.description_input.setFocus()
         self._clear_material_form()
 
