@@ -23,6 +23,11 @@ class StockService:
             return {"success": False, "message": "Data de entrada e data de digitação são obrigatórias."}
         
         try:
+            for item in items:
+                item_details = self.stock_repository.get_item_details(item['id_insumo'])
+                if item_details and item_details['NAO_ESTOCAVEL']:
+                    return {"success": False, "message": f"O item '{item_details['DESCRICAO']}' está marcado como não estocável e não pode entrar em uma nota de insumo."}
+
             total_value = sum(item['quantidade'] * item['valor_unitario'] for item in items)
             self.stock_repository.update_entry_master(entry_id, entry_date, typing_date, note_number, observacao, total_value)
             self.stock_repository.update_entry_items(entry_id, items)

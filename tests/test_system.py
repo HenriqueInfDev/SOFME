@@ -197,6 +197,27 @@ class TestSupplierService(BaseDatabaseTest):
 
 
 class TestStockService(BaseDatabaseTest):
+    def test_non_stockable_item_does_not_change_stock_on_entry_finalization(self):
+        unit_service = UnitService()
+        supplier_service = SupplierService()
+        item_service = ItemService()
+        stock_service = StockService()
+
+        supplier_data = {
+            'logradouro': 'Rua A', 'numero': '1', 'complemento': '',
+            'bairro': 'Bairro', 'cidade': 'Cidade', 'uf': 'SP', 'cep': '00000-000'
+        }
+        supplier_id = supplier_service.add_supplier('Fornecedor Não Estocável', 'Fantasia', '', '999999999', 'email@test.com', supplier_data, 'Ativo')['data']
+        unit_id = unit_service.add_unit('Estoque Unit', 'EU')['data']
+        item_id = item_service.add_item('codNaoEstocavel', 'Insumo Não Estocável', 'Insumo', unit_id, supplier_id, nao_estocavel=True)['data']
+
+        entry_result = stock_service.create_entry('2024-01-01', '2024-01-02', '321', 'Observacao')
+        self.assertTrue(entry_result['success'])
+        entry_id = entry_result['data']
+
+        update_result = stock_service.update_entry(entry_id, '2024-01-01', '2024-01-02', '321', 'Observacao', [{'id_insumo': item_id, 'id_fornecedor': supplier_id, 'quantidade': 5, 'valor_unitario': 10}])
+        self.assertFalse(update_result['success'])
+
     def test_create_update_finalize_reopen_delete_entry(self):
         unit_service = UnitService()
         supplier_service = SupplierService()
