@@ -259,11 +259,19 @@ class MainWindow(QMainWindow):
 
 
 import logging
-
-logging.basicConfig(level=logging.INFO, filename='app.log', filemode='w',
-                    format='%(name)s - %(levelname)s - %(message)s')
-
 import traceback
+
+# Use a writable logs directory instead of the installation root.
+log_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'logs')
+os.makedirs(log_dir, exist_ok=True)
+log_path = os.path.join(log_dir, 'app.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    filename=log_path,
+    filemode='w',
+    format='%(name)s - %(levelname)s - %(message)s',
+)
 
 
 def show_error_message(error_message: str, detailed_text: str = None):
