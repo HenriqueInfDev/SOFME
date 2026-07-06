@@ -18,7 +18,7 @@ PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 CreateAppDir=yes
 AllowNoIcons=yes
-SetupIconFile=..\app\images\icon.png
+SetupIconFile=..\app\images\icons\home.ico
 UninstallDisplayIcon={app}\SOFME.exe
 ChangesEnvironment=yes
 
@@ -31,12 +31,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "startmenuicon"; Description: "Create a &Start menu shortcut"; GroupDescription: "Additional icons:"; Flags: checkedonce
 
 [Files]
-Source: "..\dist\SOFME\SOFME.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\SOFME\*.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\SOFME\*.pyd"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\SOFME\*.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\SOFME\*.zip"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\SOFME\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\build\SOFME\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\app\images\*"; DestDir: "{app}\assets\images"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\local_params.txt"; DestDir: "{app}"; Flags: ignoreversion
 
