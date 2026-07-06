@@ -20,7 +20,7 @@ def _get_icon_path(icon_name):
 
 
 def search_field_style(c):
-    arrow_icon_path = _get_icon_path("search_field_arrow_down.svg")
+    arrow_icon_path = _get_icon_path("search_field_arrow_down.ico")
     return f"""
     /* ===== COMBOBOX ===== */
     QComboBox {{

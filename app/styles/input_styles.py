@@ -102,14 +102,14 @@ def doublespinbox_style(color):
 
     /* Seta de subir */
     QDoubleSpinBox::up-arrow {{
-        image: url({_get_icon_path('doublespin-up-arrow.svg')});
+        image: url({_get_icon_path('doublespin-up-arrow.ico')});
         width: 10px;
         height: 10px;
     }}
 
     /* Seta de descer */
     QDoubleSpinBox::down-arrow {{
-        image: url({_get_icon_path('doublespin-down-arrow.svg')});
+        image: url({_get_icon_path('doublespin-down-arrow.ico')});
         width: 10px;
         height: 10px;
     }}
@@ -161,7 +161,7 @@ def input_date_style(color):
     }}
 
     QDateEdit::down-arrow, QDateTimeEdit::down-arrow {{
-        image: url({_get_icon_path('calendar.svg')});
+        image: url({_get_icon_path('calendar.ico')});
         width: 14px;
         height: 14px;
     }}

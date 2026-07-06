@@ -177,7 +177,7 @@ class CalendarTextField(QWidget):
         self.line_edit.textChanged.connect(self._on_text_changed)
 
         self.button = QPushButton(self)
-        icon_path = _get_icon_path("calendar.svg")
+        icon_path = _get_icon_path("calendar.ico")
         self.button.setIcon(QIcon(icon_path))
         self.button.setCursor(Qt.PointingHandCursor)
         self.button.setFlat(True)

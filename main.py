@@ -23,7 +23,7 @@ class MainWindow(QMainWindow):
         self.windows = {}
         self.user = user
         self.setWindowTitle("GP - MiniSis")
-        self.setWindowIcon(QIcon(self._resolve_icon('home.svg')))
+        self.setWindowIcon(QIcon(self._resolve_icon('home.ico')))
         self.setGeometry(100, 100, 1200, 820)
         self.setStyleSheet(window_style(LIGHT))
         self.setup_menus()
@@ -67,10 +67,10 @@ class MainWindow(QMainWindow):
         registers_menu = menu_bar.addMenu("&Cadastros")
         
         from app.item.ui_search_window import ItemSearchWindow
-        self._add_menu_action(registers_menu, "Produtos", "item_search_window", ItemSearchWindow, 'registro_produto_icon.svg', "Pesquisar e gerenciar produtos")
+        self._add_menu_action(registers_menu, "Produtos", "item_search_window", ItemSearchWindow, 'registro_produto_icon.ico', "Pesquisar e gerenciar produtos")
         
         from app.supplier.ui_search_window import SupplierSearchWindow
-        self._add_menu_action(registers_menu, "Fornecedores", "supplier_search_window", SupplierSearchWindow, 'fornecedor_registro.svg', "Pesquisar e gerenciar fornecedores")
+        self._add_menu_action(registers_menu, "Fornecedores", "supplier_search_window", SupplierSearchWindow, 'fornecedor_registro.ico', "Pesquisar e gerenciar fornecedores")
         
         registers_menu.addSeparator()
         from app.unit.ui_unit_window import UnitWindow
@@ -83,20 +83,20 @@ class MainWindow(QMainWindow):
         movement_menu = menu_bar.addMenu("&Movimento")
         
         from app.stock.ui_entry_search_window import EntrySearchWindow
-        self._add_menu_action(movement_menu, "Entrada de Insumos", "stock_entry_window", EntrySearchWindow, 'entrada_insumo.svg', "Registrar entrada de insumos")
+        self._add_menu_action(movement_menu, "Entrada de Insumos", "stock_entry_window", EntrySearchWindow, 'entrada_insumo.ico', "Registrar entrada de insumos")
 
         movement_menu.addSeparator()
 
         from app.production_line.ui_line_list_window import LineListWindow
-        self._add_menu_action(movement_menu, "Linhas de Produção", "line_list_window", LineListWindow, 'linha_producao_icon.svg', "Gerenciar linhas de produção")
+        self._add_menu_action(movement_menu, "Linhas de Produção", "line_list_window", LineListWindow, 'linha_producao_icon.ico', "Gerenciar linhas de produção")
         
         from app.production.ui_op_search_window import OPSearchWindow
-        self._add_menu_action(movement_menu, "Ordem de Produção", "op_search_window", OPSearchWindow, 'ordem_producao_icon.svg', "Gerenciar ordens de produção")
+        self._add_menu_action(movement_menu, "Ordem de Produção", "op_search_window", OPSearchWindow, 'ordem_producao_icon.ico', "Gerenciar ordens de produção")
         
         movement_menu.addSeparator()
 
         from app.sales.ui_sale_search_window import SaleSearchWindow
-        self._add_menu_action(movement_menu, "Saída de Produtos", "sale_search_window", SaleSearchWindow, 'saida_produtos_icon.svg', "Registrar saída de produtos")
+        self._add_menu_action(movement_menu, "Saída de Produtos", "sale_search_window", SaleSearchWindow, 'saida_produtos_icon.ico', "Registrar saída de produtos")
 
         # Menu Relatórios
         reports_menu = menu_bar.addMenu("&Relatórios")
@@ -197,12 +197,12 @@ class MainWindow(QMainWindow):
             "QToolButton:checked { background-color: rgba(255, 255, 255, 0.25); }"
         )
 
-        products_action = QAction(self._load_white_icon('registro_produto_icon.svg'), "Produtos", self)
-        entry_action = QAction(self._load_white_icon('entrada_insumo.svg'), "Entrada de Insumos", self)
-        supplier_action = QAction(self._load_white_icon('fornecedor_registro.svg'), "Fornecedores", self)
-        line_action = QAction(self._load_white_icon('linha_producao_icon.svg'), "Linhas de Produção", self)
-        order_action = QAction(self._load_white_icon('ordem_producao_icon.svg'), "Ordem de Produção", self)
-        sale_action = QAction(self._load_white_icon('saida_produtos_icon.svg'), "Saída de Produtos", self)
+        products_action = QAction(self._load_white_icon('registro_produto_icon.ico'), "Produtos", self)
+        entry_action = QAction(self._load_white_icon('entrada_insumo.ico'), "Entrada de Insumos", self)
+        supplier_action = QAction(self._load_white_icon('fornecedor_registro.ico'), "Fornecedores", self)
+        line_action = QAction(self._load_white_icon('linha_producao_icon.ico'), "Linhas de Produção", self)
+        order_action = QAction(self._load_white_icon('ordem_producao_icon.ico'), "Ordem de Produção", self)
+        sale_action = QAction(self._load_white_icon('saida_produtos_icon.ico'), "Saída de Produtos", self)
 
         products_action.setToolTip("PRODUTOS")
         entry_action.setToolTip("ENTRADA DE INSUMOS")

@@ -206,7 +206,7 @@ def window_style(color):
 
     QDateEdit::down-arrow,
     QDateTimeEdit::down-arrow {{
-        image: url({_get_icon_path('calendar.svg')});
+        image: url({_get_icon_path('calendar.ico')});
         width: 14px;
         height: 14px;
     }}
