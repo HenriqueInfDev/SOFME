@@ -28,13 +28,21 @@ $adddata = @(
     "app\images;app/images"
 )
 
-$addArgs = $adddata | ForEach-Object { "--add-data `"$_`"" } | Out-String
-$addArgs = $addArgs -replace "\r?\n"," "
-
+# Build the PyInstaller command with proper argument passing
 $mode = if ($onefile) { "--onefile" } else { "--onedir" }
+$pyInstallerArgs = @("--name", "SOFME", $mode, "--windowed")
+
+# Add data files
+foreach ($data in $adddata) {
+    $pyInstallerArgs += "--add-data"
+    $pyInstallerArgs += $data
+}
+
+$pyInstallerArgs += "main.py"
 
 Write-Host "Executando PyInstaller (modo: $mode) ..."
-pyinstaller --name SOFME $mode --windowed $addArgs main.py
+Write-Host "Argumentos: $($pyInstallerArgs -join ' ')"
+pyinstaller @pyInstallerArgs
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Build concluído com sucesso. Verifique a pasta dist\SOFME"
