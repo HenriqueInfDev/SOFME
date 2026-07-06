@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QToolBar,
+    QMessageBox,
 )
 from PySide6.QtGui import QAction, QIcon, QPixmap
 from PySide6.QtCore import Qt, QSize
@@ -265,11 +266,41 @@ logging.basicConfig(level=logging.INFO, filename='app.log', filemode='w',
 import traceback
 
 
+def show_error_message(error_message: str, detailed_text: str = None):
+    msg_box = QMessageBox()
+    msg_box.setIcon(QMessageBox.Critical)
+    msg_box.setWindowTitle("Erro do Sistema")
+    msg_box.setText("Ocorreu um erro inesperado no sistema.")
+    msg_box.setInformativeText(error_message)
+    if detailed_text:
+        msg_box.setDetailedText(detailed_text)
+    msg_box.setStandardButtons(QMessageBox.Ok)
+    msg_box.exec()
+
+
+def exception_hook(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    error_text = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    logging.error("Unhandled exception:\n%s", error_text)
+    try:
+        # Ensure a QApplication exists so the message box can be shown
+        if QApplication.instance() is None:
+            _ = QApplication(sys.argv)
+        show_error_message(str(exc_value), error_text)
+    except Exception:
+        pass
+    sys.exit(1)
+
+
 def main():
+    app = QApplication(sys.argv)
+    sys.excepthook = exception_hook
+
     try:
         from app.auth.login_window import LoginWindow
-
-        app = QApplication(sys.argv)
 
         login_window = None
         main_window = None
@@ -286,8 +317,10 @@ def main():
         login_window.showMaximized()
         sys.exit(app.exec())
 
-    except Exception:
-        traceback.print_exc()
+    except Exception as exc:
+        error_text = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        logging.error("Unhandled startup exception:\n%s", error_text)
+        show_error_message(str(exc), error_text)
         sys.exit(1)
 
 if __name__ == "__main__":

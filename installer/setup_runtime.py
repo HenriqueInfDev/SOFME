@@ -1,31 +1,34 @@
-import os
 import shutil
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / 'dist' / 'SOFME'
+BUILD = ROOT / 'build' / 'SOFME'
 
 
 def ensure_runtime_structure():
+    if DIST.exists():
+        shutil.rmtree(DIST)
+
     DIST.mkdir(parents=True, exist_ok=True)
     (DIST / 'Dados').mkdir(parents=True, exist_ok=True)
     (DIST / 'logs').mkdir(parents=True, exist_ok=True)
-    (DIST / 'assets').mkdir(parents=True, exist_ok=True)
 
-    # Copy source assets
-    assets_src = ROOT / 'app' / 'images'
-    if assets_src.exists():
-        shutil.copytree(assets_src, DIST / 'assets' / 'images', dirs_exist_ok=True)
+    # Copy PyInstaller build output files needed at runtime.
+    if (BUILD / 'SOFME.exe').exists():
+        shutil.copy2(BUILD / 'SOFME.exe', DIST / 'SOFME.exe')
+    if (BUILD / 'SOFME.pkg').exists():
+        shutil.copy2(BUILD / 'SOFME.pkg', DIST / 'SOFME.pkg')
+    if (BUILD / 'localpycs').exists():
+        shutil.copytree(BUILD / 'localpycs', DIST / 'localpycs')
 
-    # Copy local params template
+    # Copy runtime configuration and database.
     if (ROOT / 'local_params.txt').exists():
         shutil.copy2(ROOT / 'local_params.txt', DIST / 'local_params.txt')
 
-    # Copy database folder if it exists
-    db_src = ROOT / 'Gestão de Produção' / 'Dados'
-    if db_src.exists():
-        shutil.copytree(db_src, DIST / 'Dados', dirs_exist_ok=True)
+    db_file = ROOT / 'Dados' / 'DADOS.DB'
+    if db_file.exists():
+        shutil.copy2(db_file, DIST / 'Dados' / 'DADOS.DB')
 
     return DIST
 

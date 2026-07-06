@@ -31,9 +31,11 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "startmenuicon"; Description: "Create a &Start menu shortcut"; GroupDescription: "Additional icons:"; Flags: checkedonce
 
 [Files]
-Source: "..\build\SOFME\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\app\images\*"; DestDir: "{app}\assets\images"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\local_params.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\SOFME\SOFME.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\SOFME\SOFME.pkg"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\SOFME\localpycs\*"; DestDir: "{app}\localpycs"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\SOFME\local_params.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\SOFME\Dados\DADOS.DB"; DestDir: "{app}\Dados"; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\Dados"

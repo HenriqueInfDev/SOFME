@@ -36,7 +36,7 @@ class DatabaseManager:
     def _get_db_path(self):
         # Build a path relative to the project root
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        return os.path.join(project_root, "Gestão de Produção", "Dados", "DADOS.DB")
+        return os.path.join(project_root, "Dados", "DADOS.DB")
 
     def initialize_database(self):
         db_dir = os.path.dirname(self.db_path)
