@@ -86,17 +86,6 @@ class ItemService:
         except Exception as e:
             return {"success": False, "message": f"Erro ao buscar itens: {e}"}
     
-    def adjust_stock_quantity(self, item_id, new_quantity):
-        if not item_id or new_quantity is None:
-            return {"success": False, "message": "Item e quantidade são obrigatórios."}
-
-        try:
-            if self.item_repository.update_stock_quantity(item_id, new_quantity):
-                return {"success": True, "message": "Estoque ajustado com sucesso."}
-            return {"success": False, "message": "Erro ao ajustar o estoque."}
-        except Exception as e:
-            return {"success": False, "message": f"Erro ao ajustar estoque: {e}"}
-
     def manual_input_material(self, item_id, quantity, total_value):
         if not all([item_id, quantity, total_value]):
             return {"success": False, "message": "Todos os campos são obrigatórios."}

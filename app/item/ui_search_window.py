@@ -180,7 +180,7 @@ class ItemSearchWindow(QWidget):
                 item_dict = dict(item) if hasattr(item, 'keys') else item
                 id_item = QStandardItem(str(item_dict['ID']))
                 id_item.setData(item_dict['ID'], Qt.DisplayRole)
-                qty_text = "NÃO ESTOCÁVEL" if bool(item_dict.get('NAO_ESTOCAVEL')) else (format_decimal_text(item_dict['SALDO_ESTOQUE']) if item_dict['SALDO_ESTOQUE'] is not None else "")
+                qty_item = QStandardItem(format_decimal_text(item_dict['SALDO_ESTOQUE']) if item_dict['SALDO_ESTOQUE'] is not None else "")
                 cost_item = QStandardItem(format_decimal_text(item_dict['CUSTO_MEDIO']) if item_dict['CUSTO_MEDIO'] is not None else "")
                 row = [
                     id_item,
@@ -188,7 +188,7 @@ class ItemSearchWindow(QWidget):
                     QStandardItem(item_dict['CODIGO_INTERNO'] or ""),
                     QStandardItem(item_dict['TIPO_ITEM']),
                     QStandardItem(item_dict['SIGLA'].upper()),
-                    QStandardItem(qty_text),
+                    qty_item,
                     cost_item
                 ]
                 self.table_model.appendRow(row)
@@ -199,8 +199,7 @@ class ItemSearchWindow(QWidget):
                     'TIPO_ITEM': item_dict['TIPO_ITEM'],
                     'SIGLA': item_dict['SIGLA'],
                     'SALDO_ESTOQUE': item_dict['SALDO_ESTOQUE'],
-                    'CUSTO_MEDIO': item_dict['CUSTO_MEDIO'],
-                    'NAO_ESTOCAVEL': item_dict.get('NAO_ESTOCAVEL', False)
+                    'CUSTO_MEDIO': item_dict['CUSTO_MEDIO']
                 }
                 self.table_model.item(self.table_model.rowCount() - 1, 0).setData(full_item_data, Qt.UserRole)
 

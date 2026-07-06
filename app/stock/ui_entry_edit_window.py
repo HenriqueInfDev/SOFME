@@ -14,8 +14,7 @@ from app.item.ui_search_window import ItemSearchWindow
 from app.supplier.ui_search_window import SupplierSearchWindow
 from app.utils.ui_utils import (
     NumericTableWidgetItem, show_error_message, show_success_message, 
-    show_confirmation_message, show_warning_message, configure_table_columns,
-    center_widget_on_screen
+    show_confirmation_message, show_warning_message, configure_table_columns
 )
 from PySide6.QtWidgets import QStyledItemDelegate
 
@@ -101,7 +100,6 @@ class EntryEditWindow(QWidget):
         self.setWindowTitle(title)
         self.setGeometry(250, 250, 800, 700)
         self.setStyleSheet(window_style(LIGHT))
-        center_widget_on_screen(self)
         self.setup_ui()
 
         if self.current_entry_id:
@@ -206,10 +204,6 @@ class EntryEditWindow(QWidget):
         
         items_group.setLayout(items_layout)
         self.main_layout.addWidget(items_group)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        center_widget_on_screen(self)
 
     def new_entry(self):
         self.current_entry_id = None
@@ -328,9 +322,6 @@ class EntryEditWindow(QWidget):
             return
         
         item = item_details["data"]
-        if bool(item.get('NAO_ESTOCAVEL')):
-            show_warning_message(self, 'Atenção', f"O item '{item['DESCRICAO']}' está marcado como não estocável. Não é possivel dar entrada nele.")
-            return
         
         item_to_add = { 
             'ID_INSUMO': item['ID'], 

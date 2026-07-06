@@ -16,7 +16,6 @@ from functools import partial
 from app.styles.windows_style import (
     window_style, LIGHT
 )
-from app.utils.ui_utils import center_widget_on_screen
 
 class MainWindow(QMainWindow):
     def __init__(self, user=None):
@@ -166,7 +165,6 @@ class MainWindow(QMainWindow):
                 pass
 
         try:
-            center_widget_on_screen(instance)
             instance.show()
             instance.raise_()
         except RuntimeError:

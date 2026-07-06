@@ -117,10 +117,6 @@ class StockRepository:
                 total_value = 0
                 for item in details['items']:
                     insumo_id, quantity, unit_cost = item['ID_INSUMO'], item['QUANTIDADE'], item['VALOR_UNITARIO']
-                    item_details = cursor.execute("SELECT NAO_ESTOCAVEL FROM ITEM WHERE ID = ?", (insumo_id,)).fetchone()
-                    if item_details and item_details['NAO_ESTOCAVEL']:
-                        continue
-
                     total_value += quantity * unit_cost
                     current_item = cursor.execute("SELECT SALDO_ESTOQUE, CUSTO_MEDIO FROM ITEM WHERE ID = ?", (insumo_id,)).fetchone()
                     old_balance, old_avg_cost = current_item['SALDO_ESTOQUE'], current_item['CUSTO_MEDIO']
@@ -148,9 +144,6 @@ class StockRepository:
                 cursor = conn.cursor()
                 for item in details['items']:
                     insumo_id, quantity, unit_cost = item['ID_INSUMO'], item['QUANTIDADE'], item['VALOR_UNITARIO']
-                    item_details = cursor.execute("SELECT NAO_ESTOCAVEL FROM ITEM WHERE ID = ?", (insumo_id,)).fetchone()
-                    if item_details and item_details['NAO_ESTOCAVEL']:
-                        continue
                     
                     # Estorna o estoque
                     current_item = cursor.execute("SELECT SALDO_ESTOQUE, CUSTO_MEDIO FROM ITEM WHERE ID = ?", (insumo_id,)).fetchone()
