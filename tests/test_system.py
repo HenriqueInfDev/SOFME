@@ -195,6 +195,18 @@ class TestSupplierService(BaseDatabaseTest):
         result = supplier_service.add_supplier('Fornecedor Inválido', 'Fantasia', '1234', '999999999', 'email@test.com', supplier_data, 'Ativo')
         self.assertFalse(result['success'])
 
+    def test_get_supplier_by_id_returns_mapping_for_ui(self):
+        supplier_service = SupplierService()
+        supplier_data = {
+            'logradouro': 'Rua A', 'numero': '1', 'complemento': '',
+            'bairro': 'Bairro', 'cidade': 'Cidade', 'uf': 'SP', 'cep': '00000-000'
+        }
+        supplier_id = supplier_service.add_supplier('Fornecedor UI', 'Fantasia UI', '', '999999999', 'email@test.com', supplier_data, 'Ativo')['data']
+
+        result = supplier_service.get_supplier_by_id(supplier_id)
+        self.assertTrue(result['success'])
+        self.assertTrue(hasattr(result['data'], 'get'))
+
 
 class TestStockService(BaseDatabaseTest):
     def test_create_update_finalize_reopen_delete_entry(self):

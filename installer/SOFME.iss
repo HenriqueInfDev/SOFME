@@ -8,7 +8,7 @@ AppPublisher=SOFME
 AppPublisherURL=https://example.com
 AppSupportURL=https://example.com
 AppUpdatesURL=https://example.com
-DefaultDirName=C:\SOFME
+DefaultDirName={autopf}\SOFME
 DefaultGroupName=SOFME
 Compression=lzma2
 SolidCompression=yes
@@ -31,7 +31,9 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "startmenuicon"; Description: "Create a &Start menu shortcut"; GroupDescription: "Additional icons:"; Flags: checkedonce
 
 [Files]
-Source: "..\dist\SOFME\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\build\SOFME\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\app\images\*"; DestDir: "{app}\assets\images"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\local_params.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\Dados"

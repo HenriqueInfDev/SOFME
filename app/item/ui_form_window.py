@@ -325,7 +325,7 @@ class ItemFormWindow(QWidget):
             supplier_service = SupplierService()
             supplier_response = supplier_service.get_supplier_by_id(self.selected_supplier_id)
             if supplier_response['success']:
-                supplier = supplier_response['data']
+                supplier = self._ensure_mapping(supplier_response['data'])
                 self.supplier_display.setText(supplier.get('NOME_FANTASIA') or supplier.get('RAZAO_SOCIAL') or '')
         self.composition_table.setRowCount(0)
         self.update_total_cost()
@@ -352,7 +352,7 @@ class ItemFormWindow(QWidget):
                     supplier_service = SupplierService()
                     supplier_response = supplier_service.get_supplier_by_id(self.selected_supplier_id)
                     if supplier_response["success"]:
-                        supplier = supplier_response["data"]
+                        supplier = self._ensure_mapping(supplier_response["data"])
                         self.supplier_display.setText(supplier.get('NOME_FANTASIA') or supplier.get('RAZAO_SOCIAL') or '')
                 
                 self.load_composition_data()

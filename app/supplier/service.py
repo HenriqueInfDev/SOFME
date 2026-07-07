@@ -13,6 +13,16 @@ class SupplierService:
         normalized = str(value).strip()
         return normalized or None
 
+    @staticmethod
+    def _normalize_supplier(supplier):
+        if supplier is None:
+            return None
+        if isinstance(supplier, dict):
+            return supplier
+        if hasattr(supplier, 'keys'):
+            return {key: supplier[key] for key in supplier.keys()}
+        return dict(supplier)
+
     def add_supplier(self, razao_social, nome_fantasia, cnpj, phone, email, address, status):
         if not razao_social:
             return {"success": False, "message": "A Razão Social do fornecedor é obrigatória."}
@@ -33,7 +43,7 @@ class SupplierService:
     def get_all_suppliers(self):
         try:
             suppliers = self.supplier_repository.get_all()
-            return {"success": True, "data": suppliers}
+            return {"success": True, "data": [self._normalize_supplier(supplier) for supplier in suppliers]}
         except Exception as e:
             return {"success": False, "message": f"Erro ao buscar fornecedores: {e}"}
 
@@ -41,7 +51,7 @@ class SupplierService:
         try:
             supplier = self.supplier_repository.get_by_id(supplier_id)
             if supplier:
-                return {"success": True, "data": supplier}
+                return {"success": True, "data": self._normalize_supplier(supplier)}
             else:
                 return {"success": False, "message": "Fornecedor não encontrado."}
         except Exception as e:
@@ -81,6 +91,6 @@ class SupplierService:
     def search_suppliers(self, search_field, search_text):
         try:
             suppliers = self.supplier_repository.search(search_text, search_field)
-            return {"success": True, "data": suppliers}
+            return {"success": True, "data": [self._normalize_supplier(supplier) for supplier in suppliers]}
         except Exception as e:
             return {"success": False, "message": f"Erro ao buscar fornecedores: {e}"}

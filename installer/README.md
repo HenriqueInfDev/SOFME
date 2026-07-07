@@ -13,8 +13,8 @@ O instalador foi implementado com Inno Setup por ser a melhor opção para aplic
 ## Estrutura prevista da instalação
 
 - SOFME.exe
-- SOFME.pkg
-- localpycs/
+- DLLs e dependências
+- assets/
 - logs/
 - Dados/
 - local_params.txt
