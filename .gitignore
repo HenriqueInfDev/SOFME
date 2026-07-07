@@ -1,3 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.spec
+*.egg-info/
+
+# Installer outputs
+installer/
+
+# PyInstaller
+*.manifest
+*.exe
+*.dll
+
+# Logs
+logs/
+
+# OS files
+Thumbs.db
+Desktop.ini
 __pycache__/
 *.py[cod]
 *$py.class

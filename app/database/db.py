@@ -38,6 +38,27 @@ class DatabaseManager:
 
     def _get_db_path(self):
         frozen = getattr(sys, 'frozen', False)
+        # Allow an override for where the data folder lives; installer can set this
+        # to point to a shared writable location (e.g. C:\\ProgramData\\SOFME). If
+        # provided, accept either a directory or a full path to a DB file.
+        env_dir = os.getenv('SOFME_DATA_DIR')
+        if env_dir:
+            env_path = os.path.abspath(env_dir)
+            logging.info(f"SOFME_DATA_DIR override detected: {env_path}")
+            # If it's a directory (or doesn't look like a .db file), use it as a folder
+            if os.path.isdir(env_path) or not env_path.lower().endswith('.db'):
+                try:
+                    os.makedirs(env_path, exist_ok=True)
+                except Exception:
+                    pass
+                return os.path.join(env_path, 'DADOS.DB')
+            # Otherwise treat as a full path to the DB file
+            parent = os.path.dirname(env_path)
+            try:
+                os.makedirs(parent, exist_ok=True)
+            except Exception:
+                pass
+            return env_path
         if frozen:
             executable_path = os.path.abspath(sys.executable)
             base_dir = os.path.dirname(executable_path)

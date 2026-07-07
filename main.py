@@ -33,13 +33,14 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Pronto - {self.user.get('LOGIN', 'Usuário') if self.user else 'Usuário'}")
 
     def _resolve_icon(self, icon_name):
-        project_root = os.path.abspath(os.path.dirname(__file__))
-        # Tenta primeiro em app/images/icons
-        icon_path = os.path.join(project_root, "app", "images", "icons", icon_name)
-        if not os.path.exists(icon_path):
-            # Se não encontrar, tenta em app/styles/images/icons
-            icon_path = os.path.join(project_root, "app", "styles", "images", "icons", icon_name)
-        return icon_path
+        from app.resources import icon_path
+
+        path = icon_path(icon_name)
+        if os.path.exists(path):
+            return path
+        # Fallback: try styles location
+        alt = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'styles', 'images', 'icons', icon_name)
+        return alt
 
     def _load_white_icon(self, icon_name):
         """Carrega um ícone SVG e o colore de branco para a toolbar"""
