@@ -113,3 +113,38 @@ class ItemService:
 
         except Exception as e:
             return {"success": False, "message": f"Erro ao registrar entrada de material: {e}"}
+
+    def set_stock(self, item_id, new_balance):
+        try:
+            item = self.item_repository.get_by_id(item_id)
+            if not item:
+                return {"success": False, "message": "Item não encontrado."}
+            current_avg = item.get('CUSTO_MEDIO', 0) or 0
+            self.item_repository.update_stock_and_cost(item_id, new_balance, current_avg)
+            return {"success": True, "message": "Estoque atualizado com sucesso."}
+        except Exception as e:
+            return {"success": False, "message": f"Erro ao atualizar estoque: {e}"}
+
+    def set_average_cost(self, item_id, new_avg_cost):
+        try:
+            item = self.item_repository.get_by_id(item_id)
+            if not item:
+                return {"success": False, "message": "Item não encontrado."}
+            current_balance = item.get('SALDO_ESTOQUE', 0) or 0
+            self.item_repository.update_stock_and_cost(item_id, current_balance, new_avg_cost)
+            return {"success": True, "message": "Custo médio atualizado com sucesso."}
+        except Exception as e:
+            return {"success": False, "message": f"Erro ao atualizar custo médio: {e}"}
+
+    def recalculate_average_from_movements(self, item_id):
+        try:
+            item = self.item_repository.get_by_id(item_id)
+            if not item:
+                return {"success": False, "message": "Item não encontrado."}
+            new_avg, total_qty = self.item_repository.compute_average_from_movements(item_id)
+            current_balance = item.get('SALDO_ESTOQUE', 0) or 0
+            # Update only the average cost, keep balance as is
+            self.item_repository.update_stock_and_cost(item_id, current_balance, new_avg)
+            return {"success": True, "data": {"new_average": new_avg, "considered_quantity": total_qty}, "message": "Cálculo do custo médio realizado."}
+        except Exception as e:
+            return {"success": False, "message": f"Erro ao recalcular custo médio: {e}"}

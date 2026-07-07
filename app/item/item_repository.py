@@ -109,3 +109,35 @@ class ItemRepository:
         cursor = self.connection.cursor()
         cursor.execute("INSERT INTO MOVIMENTO (ID_ITEM, TIPO_MOVIMENTO, QUANTIDADE, VALOR_UNITARIO, DATA_MOVIMENTO) VALUES (?, ?, ?, ?, date('now'))", (item_id, movement_type, quantity, unit_value))
         self.connection.commit()
+
+    def get_movements(self, item_id):
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT QUANTIDADE, VALOR_UNITARIO FROM MOVIMENTO WHERE ID_ITEM = ? ORDER BY DATA_MOVIMENTO", (item_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def compute_average_from_movements(self, item_id):
+        """Computes a weighted average unit cost based on positive quantity movements that include a unit value.
+
+        Returns (average_cost, total_quantity) where average_cost is 0 if no suitable movements found.
+        """
+        movements = self.get_movements(item_id)
+        total_qty = 0.0
+        total_cost = 0.0
+        for m in movements:
+            q = m.get('QUANTIDADE') or 0
+            val = m.get('VALOR_UNITARIO')
+            try:
+                qf = float(q)
+            except Exception:
+                continue
+            if qf > 0 and val is not None:
+                try:
+                    vf = float(val)
+                except Exception:
+                    continue
+                total_qty += qf
+                total_cost += qf * vf
+
+        if total_qty > 0:
+            return total_cost / total_qty, total_qty
+        return 0.0, 0.0

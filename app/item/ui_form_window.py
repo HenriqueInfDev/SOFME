@@ -78,6 +78,9 @@ class ItemFormWindow(QWidget):
         # --- Aba Composição ---
         self.create_composition_tab()
 
+        # --- Aba Reajuste ---
+        self.create_reajuste_tab()
+
         # Carregar dados
         self.populate_units_combobox()
         self.load_item_data()
@@ -386,6 +389,11 @@ class ItemFormWindow(QWidget):
                         self.supplier_display.setText(supplier.get('NOME_FANTASIA') or supplier.get('RAZAO_SOCIAL') or '')
                 
                 self.load_composition_data()
+                # Atualiza a aba de reajuste com valores atuais
+                try:
+                    self.update_reajuste_display()
+                except Exception:
+                    pass
         
         self.toggle_composition_tab()
 
@@ -563,6 +571,110 @@ class ItemFormWindow(QWidget):
         self.search_supplier_window.supplier_selected.connect(self.set_selected_supplier)
         self.search_supplier_window.destroyed.connect(lambda: setattr(self, 'search_supplier_window', None))
         self.search_supplier_window.show()
+
+    def create_reajuste_tab(self):
+        """Cria a aba de Reajuste para atualizar estoque e custo médio."""
+        self.reajuste_widget = QWidget()
+        layout = QVBoxLayout(self.reajuste_widget)
+
+        # Labels com os valores atuais
+        self.current_stock_label = QLabel("Estoque atual: -")
+        self.current_cost_label = QLabel("Custo médio atual: -")
+        layout.addWidget(self.current_stock_label)
+        layout.addWidget(self.current_cost_label)
+
+        # Linha de ajuste de estoque
+        stock_layout = QHBoxLayout()
+        stock_label = QLabel("Inserir estoque novo:")
+        self.new_stock_input = QLineEdit()
+        self.new_stock_input.setPlaceholderText("Ex: 10.5")
+        stock_update_btn = QPushButton("Atualizar")
+        stock_update_btn.setStyleSheet(button_style(GREEN))
+        stock_update_btn.clicked.connect(self.update_stock_action)
+        stock_layout.addWidget(stock_label)
+        stock_layout.addWidget(self.new_stock_input)
+        stock_layout.addWidget(stock_update_btn)
+        layout.addLayout(stock_layout)
+
+        # Linha de ajuste de custo médio
+        cost_layout = QHBoxLayout()
+        cost_label = QLabel("Inserir custo médio:")
+        self.new_cost_input = QLineEdit()
+        self.new_cost_input.setPlaceholderText("Ex: 2.50")
+        cost_update_btn = QPushButton("Atualizar")
+        cost_update_btn.setStyleSheet(button_style(GREEN))
+        cost_update_btn.clicked.connect(self.update_cost_action)
+        cost_recalc_btn = QPushButton("Recalcular")
+        cost_recalc_btn.setStyleSheet(button_style(BLUE))
+        cost_recalc_btn.clicked.connect(self.recalculate_cost_action)
+        cost_layout.addWidget(cost_label)
+        cost_layout.addWidget(self.new_cost_input)
+        cost_layout.addWidget(cost_update_btn)
+        cost_layout.addWidget(cost_recalc_btn)
+        layout.addLayout(cost_layout)
+
+        self.tab_widget.addTab(self.reajuste_widget, "Reajuste")
+
+    def update_reajuste_display(self):
+        """Atualiza os labels da aba de reajuste com os valores atuais do item."""
+        if not self.current_item_id:
+            self.current_stock_label.setText("Estoque atual: -")
+            self.current_cost_label.setText("Custo médio atual: -")
+            return
+        response = self.item_service.get_item_by_id(self.current_item_id)
+        if not response.get('success'):
+            return
+        item = response.get('data', {})
+        saldo = item.get('SALDO_ESTOQUE')
+        custo = item.get('CUSTO_MEDIO')
+        self.current_stock_label.setText(f"Estoque atual: {format_decimal_text(saldo) if saldo is not None else '-'}")
+        self.current_cost_label.setText(f"Custo médio atual: R$ {format_decimal_text(custo) if custo is not None else '-'}")
+
+    def update_stock_action(self):
+        if not self.current_item_id:
+            show_warning_message(self, 'Atenção', 'Nenhum item carregado para reajuste.')
+            return
+        try:
+            new_stock = float(self.new_stock_input.text().replace(',', '.'))
+        except Exception:
+            show_warning_message(self, 'Atenção', 'Valor de estoque inválido.')
+            return
+        resp = self.item_service.set_stock(self.current_item_id, new_stock)
+        if resp.get('success'):
+            show_success_message(self, 'Sucesso', resp.get('message'))
+            self.load_item_data()
+            self.new_stock_input.clear()
+        else:
+            show_error_message(self, 'Erro', resp.get('message'))
+
+    def update_cost_action(self):
+        if not self.current_item_id:
+            show_warning_message(self, 'Atenção', 'Nenhum item carregado para reajuste.')
+            return
+        try:
+            new_cost = float(self.new_cost_input.text().replace(',', '.'))
+        except Exception:
+            show_warning_message(self, 'Atenção', 'Valor de custo inválido.')
+            return
+        resp = self.item_service.set_average_cost(self.current_item_id, new_cost)
+        if resp.get('success'):
+            show_success_message(self, 'Sucesso', resp.get('message'))
+            self.load_item_data()
+            self.new_cost_input.clear()
+        else:
+            show_error_message(self, 'Erro', resp.get('message'))
+
+    def recalculate_cost_action(self):
+        if not self.current_item_id:
+            show_warning_message(self, 'Atenção', 'Nenhum item carregado para recalcular.')
+            return
+        resp = self.item_service.recalculate_average_from_movements(self.current_item_id)
+        if resp.get('success'):
+            new_avg = resp.get('data', {}).get('new_average')
+            show_success_message(self, 'Sucesso', f"Novo custo médio: R$ {format_decimal_text(new_avg)}")
+            self.load_item_data()
+        else:
+            show_error_message(self, 'Erro', resp.get('message'))
 
     def set_selected_supplier(self, supplier_data):
         """Recebe o fornecedor selecionado e atualiza a UI."""
