@@ -3,6 +3,8 @@ import sqlite3
 import os
 import atexit
 import logging
+import shutil
+import sys
 import threading
 
 class DatabaseManager:
@@ -34,9 +36,45 @@ class DatabaseManager:
         cls._instance = None
 
     def _get_db_path(self):
-        # Build a path relative to the project root
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        return os.path.join(project_root, "Dados", "DADOS.DB")
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(os.path.abspath(sys.executable))
+        else:
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+        data_dir = os.path.join(base_dir, 'Dados')
+        target_path = os.path.join(data_dir, 'DADOS.DB')
+        data_dir_lower = os.path.join(base_dir, 'Dados')
+        target_path_lower = os.path.join(data_dir_lower, 'dados.db')
+
+        os.makedirs(data_dir, exist_ok=True)
+
+        existing_candidates = [
+            target_path,
+            target_path_lower,
+        ]
+        for candidate in existing_candidates:
+            if os.path.exists(candidate):
+                return candidate
+
+        legacy_candidates = [
+            os.path.join(base_dir, '_internal', 'Dados', 'DADOS.DB'),
+            os.path.join(base_dir, '_internal', 'Dados', 'dados.db'),
+            os.path.join(base_dir, '_internal', 'dados', 'dados.dB'),
+            os.path.join(base_dir, '_internal', 'dados', 'dados.db'),
+        ]
+        for legacy_path in legacy_candidates:
+            if os.path.exists(legacy_path):
+                try:
+                    shutil.move(legacy_path, target_path)
+                except OSError:
+                    shutil.copy2(legacy_path, target_path)
+                    try:
+                        os.remove(legacy_path)
+                    except OSError:
+                        pass
+                return target_path
+
+        return target_path
 
     def initialize_database(self):
         db_dir = os.path.dirname(self.db_path)

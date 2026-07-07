@@ -1,8 +1,10 @@
 import os
+import sqlite3
 import sys
 import time
 import unittest
 import tempfile
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -56,6 +58,27 @@ class TestDatabaseInitialization(BaseDatabaseTest):
             'LINHAPRODUCAO', 'LINHAPRODUCAO_ITEMS'
         }
         self.assertTrue(expected_tables.issubset(tables))
+
+    def test_frozen_app_uses_shared_data_folder(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_root = os.path.join(temp_dir, "SOFME")
+            legacy_db_path = os.path.join(app_root, "_internal", "Dados", "DADOS.DB")
+            os.makedirs(os.path.dirname(legacy_db_path), exist_ok=True)
+
+            legacy_conn = sqlite3.connect(legacy_db_path)
+            legacy_conn.execute("CREATE TABLE TEST (ID INTEGER PRIMARY KEY)")
+            legacy_conn.commit()
+            legacy_conn.close()
+
+            with patch("sys.frozen", True, create=True), patch("sys.executable", os.path.join(app_root, "SOFME.exe")):
+                DatabaseManager.reset_instance()
+                try:
+                    db_manager = DatabaseManager()
+                    expected_db_path = os.path.join(app_root, "Dados", "DADOS.DB")
+                    self.assertEqual(db_manager.db_path, expected_db_path)
+                    self.assertTrue(os.path.exists(expected_db_path))
+                finally:
+                    DatabaseManager.reset_instance()
 
 
 class TestUnitService(BaseDatabaseTest):
