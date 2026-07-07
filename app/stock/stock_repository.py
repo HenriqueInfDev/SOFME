@@ -196,4 +196,5 @@ class StockRepository:
             LEFT JOIN UNIDADE u ON i.ID_UNIDADE = u.ID
             WHERE i.ID = ?
         """
-        return conn.execute(query, (item_id,)).fetchone()
+        item = conn.execute(query, (item_id,)).fetchone()
+        return dict(item) if item is not None else None

@@ -28,12 +28,13 @@ class ItemRepository:
             JOIN UNIDADE u ON i.ID_UNIDADE = u.ID
             ORDER BY i.DESCRICAO
         """)
-        return cursor.fetchall()
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_by_id(self, item_id):
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM ITEM WHERE ID = ?", (item_id,))
-        return cursor.fetchone()
+        item = cursor.fetchone()
+        return dict(item) if item is not None else None
 
     def update(self, item_id, codigo_interno, description, item_type, unit_id, id_fornecedor_padrao, nao_estocavel=False):
         cursor = self.connection.cursor()
@@ -97,7 +98,7 @@ class ItemRepository:
             
         query += " ORDER BY i.DESCRICAO"
         cursor.execute(query, params)
-        return cursor.fetchall()
+        return [dict(row) for row in cursor.fetchall()]
         
     def update_stock_and_cost(self, item_id, new_balance, new_average_cost):
         cursor = self.connection.cursor()

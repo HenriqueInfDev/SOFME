@@ -80,6 +80,69 @@ class TestDatabaseInitialization(BaseDatabaseTest):
                 finally:
                     DatabaseManager.reset_instance()
 
+    def test_frozen_app_uses_shared_data_folder_when_executable_is_internal(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_root = os.path.join(temp_dir, "SOFME")
+            internal_exe = os.path.join(app_root, "_internal", "SOFME.exe")
+            legacy_db_path = os.path.join(app_root, "_internal", "Dados", "DADOS.DB")
+            os.makedirs(os.path.dirname(legacy_db_path), exist_ok=True)
+
+            legacy_conn = sqlite3.connect(legacy_db_path)
+            legacy_conn.execute("CREATE TABLE TEST (ID INTEGER PRIMARY KEY)")
+            legacy_conn.commit()
+            legacy_conn.close()
+
+            with patch("sys.frozen", True, create=True), patch("sys.executable", internal_exe):
+                DatabaseManager.reset_instance()
+                try:
+                    db_manager = DatabaseManager()
+                    expected_db_path = os.path.join(app_root, "Dados", "DADOS.DB")
+                    self.assertEqual(db_manager.db_path, expected_db_path)
+                    self.assertTrue(os.path.exists(expected_db_path))
+                finally:
+                    DatabaseManager.reset_instance()
+
+    def test_existing_root_database_preferred_over_internal(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_root = os.path.join(temp_dir, "SOFME")
+            os.makedirs(os.path.join(app_root, "Dados"), exist_ok=True)
+            os.makedirs(os.path.join(app_root, "_internal", "Dados"), exist_ok=True)
+
+            root_db_path = os.path.join(app_root, "Dados", "DADOS.DB")
+            internal_db_path = os.path.join(app_root, "_internal", "Dados", "DADOS.DB")
+
+            root_conn = sqlite3.connect(root_db_path)
+            root_conn.execute("CREATE TABLE TEST_ROOT (ID INTEGER PRIMARY KEY)")
+            root_conn.commit()
+            root_conn.close()
+
+            internal_conn = sqlite3.connect(internal_db_path)
+            internal_conn.execute("CREATE TABLE TEST_INTERNAL (ID INTEGER PRIMARY KEY)")
+            internal_conn.commit()
+            internal_conn.close()
+
+            with patch("sys.frozen", True, create=True), patch("sys.executable", os.path.join(app_root, "SOFME.exe")):
+                DatabaseManager.reset_instance()
+                try:
+                    db_manager = DatabaseManager()
+                    self.assertEqual(db_manager.db_path, root_db_path)
+                    self.assertTrue(os.path.exists(root_db_path))
+                    self.assertFalse(os.path.exists(internal_db_path))
+                finally:
+                    DatabaseManager.reset_instance()
+
+    def test_stock_item_details_returns_mapping(self):
+        unit_service = UnitService()
+        item_service = ItemService()
+        unit_id = unit_service.add_unit('Test Unit', 'TU')['data']
+        item_id = item_service.add_item('codItem', 'Item Test', 'Insumo', unit_id, None)['data']
+
+        stock_service = StockService()
+        result = stock_service.get_item_details(item_id)
+        self.assertTrue(result['success'])
+        self.assertIsInstance(result['data'], dict)
+        self.assertEqual(result['data']['ID'], item_id)
+
 
 class TestUnitService(BaseDatabaseTest):
     def test_add_update_delete_unit(self):

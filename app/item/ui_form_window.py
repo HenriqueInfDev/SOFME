@@ -307,19 +307,49 @@ class ItemFormWindow(QWidget):
             show_error_message(self, "Error", response["message"])
 
     def _ensure_mapping(self, item_data):
+        if item_data is None:
+            return {}
+        if isinstance(item_data, dict):
+            return item_data
         if hasattr(item_data, 'keys'):
-            return {key: item_data[key] for key in item_data.keys()}
-        return dict(item_data or {})
+            try:
+                return {key: item_data[key] for key in item_data.keys()}
+            except Exception:
+                pass
+        try:
+            return dict(item_data)
+        except Exception:
+            return {}
+
+    def _get_value(self, source, key, default=None):
+        if source is None:
+            return default
+        if isinstance(source, dict):
+            return source.get(key, default)
+        if hasattr(source, 'keys') and key in source.keys():
+            try:
+                return source[key]
+            except Exception:
+                return default
+        if hasattr(source, 'get'):
+            try:
+                return source.get(key, default)
+            except Exception:
+                return default
+        try:
+            return source[key]
+        except Exception:
+            return default
 
     def _apply_copy_data(self, item_data):
         self.current_item_id = None
         self.setWindowTitle("Novo Item")
         item_data = self._ensure_mapping(item_data)
-        self.code_internal_input.setText(item_data.get('CODIGO_INTERNO') or '')
-        self.description_input.setText(f"{item_data.get('DESCRICAO') or ''} (Cópia)")
-        self.type_combo.setCurrentText(item_data.get('TIPO_ITEM') or 'Insumo')
-        self.non_stock_checkbox.setChecked(bool(item_data.get('NAO_ESTOCAVEL')))
-        self.selected_supplier_id = item_data.get('ID_FORNECEDOR_PADRAO')
+        self.code_internal_input.setText(self._get_value(item_data, 'CODIGO_INTERNO', '') or '')
+        self.description_input.setText(f"{self._get_value(item_data, 'DESCRICAO', '') or ''} (Cópia)")
+        self.type_combo.setCurrentText(self._get_value(item_data, 'TIPO_ITEM', 'Insumo') or 'Insumo')
+        self.non_stock_checkbox.setChecked(bool(self._get_value(item_data, 'NAO_ESTOCAVEL', False)))
+        self.selected_supplier_id = self._get_value(item_data, 'ID_FORNECEDOR_PADRAO')
         if self.selected_supplier_id:
             from app.supplier.service import SupplierService
             supplier_service = SupplierService()
@@ -337,16 +367,16 @@ class ItemFormWindow(QWidget):
             response = self.item_service.get_item_by_id(self.current_item_id)
             if response["success"]:
                 item = self._ensure_mapping(response["data"])
-                self.code_internal_input.setText(item.get('CODIGO_INTERNO') or '')
-                self.description_input.setText(item.get('DESCRICAO') or '')
-                self.type_combo.setCurrentText(item.get('TIPO_ITEM') or 'Insumo')
-                self.non_stock_checkbox.setChecked(bool(item.get('NAO_ESTOCAVEL')))
+                self.code_internal_input.setText(self._get_value(item, 'CODIGO_INTERNO', '') or '')
+                self.description_input.setText(self._get_value(item, 'DESCRICAO', '') or '')
+                self.type_combo.setCurrentText(self._get_value(item, 'TIPO_ITEM', 'Insumo') or 'Insumo')
+                self.non_stock_checkbox.setChecked(bool(self._get_value(item, 'NAO_ESTOCAVEL', False)))
                 
-                unit_index = self.unit_combo.findData(item.get('ID_UNIDADE'))
+                unit_index = self.unit_combo.findData(self._get_value(item, 'ID_UNIDADE'))
                 if unit_index != -1:
                     self.unit_combo.setCurrentIndex(unit_index)
 
-                self.selected_supplier_id = item.get('ID_FORNECEDOR_PADRAO')
+                self.selected_supplier_id = self._get_value(item, 'ID_FORNECEDOR_PADRAO')
                 if self.selected_supplier_id:
                     from app.supplier.service import SupplierService
                     supplier_service = SupplierService()

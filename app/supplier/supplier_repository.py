@@ -26,11 +26,12 @@ class SupplierRepository:
 
     def get_all(self):
         conn = self.db_manager.get_connection()
-        return conn.execute("SELECT ID, RAZAO_SOCIAL, NOME_FANTASIA, CNPJ, TELEFONE, EMAIL, CIDADE, UF, STATUS FROM FORNECEDOR ORDER BY NOME_FANTASIA").fetchall()
+        return [dict(row) for row in conn.execute("SELECT ID, RAZAO_SOCIAL, NOME_FANTASIA, CNPJ, TELEFONE, EMAIL, CIDADE, UF, STATUS FROM FORNECEDOR ORDER BY NOME_FANTASIA").fetchall()]
 
     def get_by_id(self, supplier_id):
         conn = self.db_manager.get_connection()
-        return conn.execute("SELECT * FROM FORNECEDOR WHERE ID = ?", (supplier_id,)).fetchone()
+        supplier = conn.execute("SELECT * FROM FORNECEDOR WHERE ID = ?", (supplier_id,)).fetchone()
+        return dict(supplier) if supplier is not None else None
 
     def update(self, supplier_id, razao_social, nome_fantasia, cnpj, phone, email, address, status):
         conn = self.db_manager.get_connection()
@@ -91,4 +92,4 @@ class SupplierRepository:
             query = f"SELECT ID, RAZAO_SOCIAL, NOME_FANTASIA, CNPJ, TELEFONE, EMAIL, CIDADE, UF, STATUS FROM FORNECEDOR WHERE {column} LIKE ?"
             params = (f'%{search_text}%',)
             
-        return conn.execute(query, params).fetchall()
+        return [dict(row) for row in conn.execute(query, params).fetchall()]

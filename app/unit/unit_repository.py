@@ -23,7 +23,7 @@ class UnitRepository:
     def get_all(self):
         cursor = self.connection.cursor()
         cursor.execute("SELECT ID, NOME, SIGLA FROM UNIDADE ORDER BY NOME")
-        return cursor.fetchall()
+        return [dict(row) for row in cursor.fetchall()]
 
     def update(self, unit_id, name, abbreviation):
         cursor = self.connection.cursor()

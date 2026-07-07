@@ -32,7 +32,7 @@ class ItemService:
     def get_all_items(self):
         try:
             items = self.item_repository.get_all()
-            return {"success": True, "data": items}
+            return {"success": True, "data": [self._normalize_item(item) for item in items]}
         except Exception as e:
             return {"success": False, "message": f"Erro ao buscar itens: {e}"}
             
@@ -82,7 +82,7 @@ class ItemService:
     def search_items(self, search_type, search_text):
         try:
             items = self.item_repository.search(search_type, search_text)
-            return {"success": True, "data": items}
+            return {"success": True, "data": [self._normalize_item(item) for item in items]}
         except Exception as e:
             return {"success": False, "message": f"Erro ao buscar itens: {e}"}
     

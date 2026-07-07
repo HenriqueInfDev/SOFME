@@ -23,10 +23,19 @@ class UnitService:
         except Exception as e:
             return {"success": False, "message": f"Erro ao adicionar unidade: {e}"}
 
+    def _normalize_unit(self, unit):
+        if unit is None:
+            return None
+        if isinstance(unit, dict):
+            return unit
+        if hasattr(unit, 'keys'):
+            return {key: unit[key] for key in unit.keys()}
+        return dict(unit)
+
     def get_all_units(self):
         try:
             units = self.unit_repository.get_all()
-            return {"success": True, "data": units}
+            return {"success": True, "data": [self._normalize_unit(unit) for unit in units]}
         except Exception as e:
             return {"success": False, "message": f"Erro ao buscar unidades: {e}"}
 

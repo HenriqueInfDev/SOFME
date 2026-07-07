@@ -6,6 +6,7 @@ import logging
 import shutil
 import sys
 import threading
+import ctypes
 
 class DatabaseManager:
     _instance = None
@@ -36,51 +37,154 @@ class DatabaseManager:
         cls._instance = None
 
     def _get_db_path(self):
-        if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(os.path.abspath(sys.executable))
+        frozen = getattr(sys, 'frozen', False)
+        if frozen:
+            executable_path = os.path.abspath(sys.executable)
+            base_dir = os.path.dirname(executable_path)
+            parts = base_dir.split(os.sep)
+            lower_parts = [part.lower() for part in parts]
+            if '_internal' in lower_parts:
+                internal_index = lower_parts.index('_internal')
+                base_dir = os.sep.join(parts[:internal_index]) or os.sep
         else:
             base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-        data_dir = os.path.join(base_dir, 'Dados')
-        target_path = os.path.join(data_dir, 'DADOS.DB')
-        data_dir_lower = os.path.join(base_dir, 'Dados')
-        target_path_lower = os.path.join(data_dir_lower, 'dados.db')
+        root_data_dir = os.path.join(base_dir, 'Dados')
+        root_target_path = os.path.join(root_data_dir, 'DADOS.DB')
+        root_target_path_lower = os.path.join(root_data_dir, 'dados.db')
 
-        os.makedirs(data_dir, exist_ok=True)
+        internal_data_dir = os.path.join(base_dir, '_internal', 'Dados')
+        internal_target_path = os.path.join(internal_data_dir, 'DADOS.DB')
+        internal_target_path_lower = os.path.join(internal_data_dir, 'dados.db')
 
+        logging.info(f"Resolving database path: frozen={frozen}, executable={sys.executable}, base_dir={base_dir}")
+
+        if frozen and os.path.isdir(os.path.join(base_dir, '_internal')):
+            # Prefer an existing root-level shared database when both exist
+            for candidate in [root_target_path, root_target_path_lower]:
+                if os.path.exists(candidate):
+                    # If an internal legacy DB exists, clean it up so only root remains
+                    if os.path.exists(internal_target_path) or os.path.exists(internal_target_path_lower):
+                        self._clean_legacy_internal_db(base_dir, root_target_path)
+                    logging.info(f"Using existing root database path: {candidate}")
+                    return candidate
+
+            for candidate in [internal_target_path, internal_target_path_lower]:
+                if os.path.exists(candidate):
+                    # Copy internal legacy DB to root shared data folder and clean internal
+                    try:
+                        os.makedirs(root_data_dir, exist_ok=True)
+                        shutil.copy2(candidate, root_target_path)
+                        logging.info(f"Copied internal DB from {candidate} to {root_target_path}")
+                    except OSError as copy_exc:
+                        logging.warning(f"Failed to copy internal database {candidate}: {copy_exc}")
+                    # Remove internal legacy files/directories
+                    self._clean_legacy_internal_db(base_dir, root_target_path)
+                    return root_target_path
+
+            os.makedirs(internal_data_dir, exist_ok=True)
+            self._remove_root_database_if_present(root_data_dir)
+            logging.info(f"Creating new internal database path: {internal_target_path}")
+            return internal_target_path
+
+        os.makedirs(root_data_dir, exist_ok=True)
         existing_candidates = [
-            target_path,
-            target_path_lower,
+            root_target_path,
+            root_target_path_lower,
         ]
         for candidate in existing_candidates:
             if os.path.exists(candidate):
+                logging.info(f"Using existing database path: {candidate}")
+                self._clean_legacy_internal_db(base_dir, root_target_path)
                 return candidate
 
         legacy_candidates = [
+            internal_target_path,
+            internal_target_path_lower,
+        ]
+        for legacy_path in legacy_candidates:
+            if os.path.exists(legacy_path):
+                try:
+                    shutil.copy2(legacy_path, root_target_path)
+                    logging.info(f"Copied legacy database from {legacy_path} to {root_target_path}")
+                except OSError as copy_exc:
+                    logging.warning(f"Failed to copy legacy database {legacy_path}: {copy_exc}")
+                return root_target_path
+
+        logging.info(f"Creating new database path: {root_target_path}")
+        return root_target_path
+
+    def _remove_root_database_if_present(self, root_data_dir):
+        if not os.path.isdir(root_data_dir):
+            return
+
+        removed_any = False
+        for filename in ['DADOS.DB', 'dados.db']:
+            legacy_path = os.path.join(root_data_dir, filename)
+            if os.path.exists(legacy_path):
+                try:
+                    os.remove(legacy_path)
+                    logging.info(f"Removed root database legacy file: {legacy_path}")
+                    removed_any = True
+                except OSError as remove_exc:
+                    logging.warning(f"Could not remove root database legacy file {legacy_path}: {remove_exc}")
+
+        if removed_any:
+            try:
+                os.rmdir(root_data_dir)
+                logging.info(f"Removed empty root data directory: {root_data_dir}")
+            except OSError:
+                pass
+
+    def _clean_legacy_internal_db(self, base_dir, root_target_path):
+        legacy_paths = [
             os.path.join(base_dir, '_internal', 'Dados', 'DADOS.DB'),
             os.path.join(base_dir, '_internal', 'Dados', 'dados.db'),
             os.path.join(base_dir, '_internal', 'dados', 'dados.dB'),
             os.path.join(base_dir, '_internal', 'dados', 'dados.db'),
         ]
-        for legacy_path in legacy_candidates:
+        for legacy_path in legacy_paths:
             if os.path.exists(legacy_path):
                 try:
-                    shutil.move(legacy_path, target_path)
-                except OSError:
-                    shutil.copy2(legacy_path, target_path)
-                    try:
-                        os.remove(legacy_path)
-                    except OSError:
-                        pass
-                return target_path
+                    os.remove(legacy_path)
+                    logging.info(f"Removed stale legacy database at {legacy_path}")
+                except OSError as remove_exc:
+                    logging.warning(f"Could not remove stale legacy database {legacy_path}: {remove_exc}")
 
-        return target_path
+        internal_data_dir = os.path.join(base_dir, '_internal', 'Dados')
+        if os.path.isdir(internal_data_dir):
+            try:
+                os.rmdir(internal_data_dir)
+                logging.info(f"Removed empty internal data directory: {internal_data_dir}")
+            except OSError:
+                pass
+
+        internal_dir = os.path.join(base_dir, '_internal')
+        if os.path.isdir(internal_dir):
+            try:
+                os.rmdir(internal_dir)
+                logging.info(f"Removed empty internal runtime directory: {internal_dir}")
+            except OSError:
+                pass
 
     def initialize_database(self):
         db_dir = os.path.dirname(self.db_path)
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
         main_tid = threading.get_ident()
+
+        # Show debug MessageBox only when explicitly enabled to avoid blocking automated tests
+        try:
+            if os.getenv('SOFME_SHOW_DB_DEBUG') == '1':
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"Executável:\n{sys.executable}\n\nBanco:\n{self.db_path}",
+                    "Debug",
+                    0
+                )
+        except Exception:
+            pass
+
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         with self._conn_lock:
