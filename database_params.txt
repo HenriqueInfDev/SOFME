@@ -1,0 +1,4 @@
+db.1.directory=C:\Users\Henrique\Desktop\BASE SOFME
+db.1.filename=DADOS.DB
+db.1.name=BASE TESTE
+db.selected=1

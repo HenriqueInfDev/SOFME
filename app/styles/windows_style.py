@@ -344,13 +344,24 @@ def window_style(color):
     QHeaderView::section {{
         background-color: {color['accent-soft']};
         padding: 10px 14px;
-        border: none;
+        border-top: 1px solid {color['border']};
+        border-left: 1px solid {color['border']};
+        border-right: 1px solid {color['border']};
+        border-bottom: 1px solid {color['border']};
         color: {color['accent']};
         font-weight: 700;
     }}
 
+    QHeaderView::section:first-of-type {{
+        border-left: 1px solid {color['border']};
+    }}
+
+    QHeaderView::section:last-of-type {{
+        border-right: 1px solid {color['border']};
+    }}
+
     QTableCornerButton::section {{
         background-color: {color['accent-soft']};
-        border: none;
+        border: 1px solid {color['border']};
     }}
     """

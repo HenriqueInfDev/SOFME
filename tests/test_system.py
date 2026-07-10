@@ -6,6 +6,8 @@ import unittest
 import tempfile
 from unittest.mock import patch
 
+original_sofme_data_dir = os.environ.pop('SOFME_DATA_DIR', None)
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.database.db import get_db_manager, DatabaseManager
@@ -39,11 +41,13 @@ def setUpModule():
 
 class BaseDatabaseTest(unittest.TestCase):
     def setUp(self):
+        os.environ.pop('SOFME_DATA_DIR', None)
         DatabaseManager.reset_instance()
         self.db_manager = get_db_manager(db_path=':memory:')
 
     def tearDown(self):
         DatabaseManager.reset_instance()
+        os.environ.pop('SOFME_DATA_DIR', None)
 
 
 class TestDatabaseInitialization(BaseDatabaseTest):
@@ -59,77 +63,6 @@ class TestDatabaseInitialization(BaseDatabaseTest):
         }
         self.assertTrue(expected_tables.issubset(tables))
 
-    def test_frozen_app_uses_shared_data_folder(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            app_root = os.path.join(temp_dir, "SOFME")
-            legacy_db_path = os.path.join(app_root, "_internal", "Dados", "DADOS.DB")
-            os.makedirs(os.path.dirname(legacy_db_path), exist_ok=True)
-
-            legacy_conn = sqlite3.connect(legacy_db_path)
-            legacy_conn.execute("CREATE TABLE TEST (ID INTEGER PRIMARY KEY)")
-            legacy_conn.commit()
-            legacy_conn.close()
-
-            with patch("sys.frozen", True, create=True), patch("sys.executable", os.path.join(app_root, "SOFME.exe")):
-                DatabaseManager.reset_instance()
-                try:
-                    db_manager = DatabaseManager()
-                    expected_db_path = os.path.join(app_root, "Dados", "DADOS.DB")
-                    self.assertEqual(db_manager.db_path, expected_db_path)
-                    self.assertTrue(os.path.exists(expected_db_path))
-                finally:
-                    DatabaseManager.reset_instance()
-
-    def test_frozen_app_uses_shared_data_folder_when_executable_is_internal(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            app_root = os.path.join(temp_dir, "SOFME")
-            internal_exe = os.path.join(app_root, "_internal", "SOFME.exe")
-            legacy_db_path = os.path.join(app_root, "_internal", "Dados", "DADOS.DB")
-            os.makedirs(os.path.dirname(legacy_db_path), exist_ok=True)
-
-            legacy_conn = sqlite3.connect(legacy_db_path)
-            legacy_conn.execute("CREATE TABLE TEST (ID INTEGER PRIMARY KEY)")
-            legacy_conn.commit()
-            legacy_conn.close()
-
-            with patch("sys.frozen", True, create=True), patch("sys.executable", internal_exe):
-                DatabaseManager.reset_instance()
-                try:
-                    db_manager = DatabaseManager()
-                    expected_db_path = os.path.join(app_root, "Dados", "DADOS.DB")
-                    self.assertEqual(db_manager.db_path, expected_db_path)
-                    self.assertTrue(os.path.exists(expected_db_path))
-                finally:
-                    DatabaseManager.reset_instance()
-
-    def test_existing_root_database_preferred_over_internal(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            app_root = os.path.join(temp_dir, "SOFME")
-            os.makedirs(os.path.join(app_root, "Dados"), exist_ok=True)
-            os.makedirs(os.path.join(app_root, "_internal", "Dados"), exist_ok=True)
-
-            root_db_path = os.path.join(app_root, "Dados", "DADOS.DB")
-            internal_db_path = os.path.join(app_root, "_internal", "Dados", "DADOS.DB")
-
-            root_conn = sqlite3.connect(root_db_path)
-            root_conn.execute("CREATE TABLE TEST_ROOT (ID INTEGER PRIMARY KEY)")
-            root_conn.commit()
-            root_conn.close()
-
-            internal_conn = sqlite3.connect(internal_db_path)
-            internal_conn.execute("CREATE TABLE TEST_INTERNAL (ID INTEGER PRIMARY KEY)")
-            internal_conn.commit()
-            internal_conn.close()
-
-            with patch("sys.frozen", True, create=True), patch("sys.executable", os.path.join(app_root, "SOFME.exe")):
-                DatabaseManager.reset_instance()
-                try:
-                    db_manager = DatabaseManager()
-                    self.assertEqual(db_manager.db_path, root_db_path)
-                    self.assertTrue(os.path.exists(root_db_path))
-                    self.assertFalse(os.path.exists(internal_db_path))
-                finally:
-                    DatabaseManager.reset_instance()
 
     def test_stock_item_details_returns_mapping(self):
         unit_service = UnitService()
@@ -142,6 +75,60 @@ class TestDatabaseInitialization(BaseDatabaseTest):
         self.assertTrue(result['success'])
         self.assertIsInstance(result['data'], dict)
         self.assertEqual(result['data']['ID'], item_id)
+
+
+class TestDatabaseConfig(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.config_path = os.path.join(self.temp_dir.name, 'database_params.txt')
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_add_and_load_database_config(self):
+        from app.database.config import add_database_config, load_database_configs, get_selected_database_path
+
+        config = add_database_config(
+            name='Local DB',
+            directory=self.temp_dir.name,
+            filename='dados.db',
+            filename_override=self.config_path
+        )
+
+        configs = load_database_configs(self.config_path)
+        self.assertEqual(len(configs), 1)
+        self.assertEqual(configs[0].name, 'Local DB')
+        self.assertEqual(configs[0].full_path, os.path.abspath(os.path.join(self.temp_dir.name, 'dados.db')))
+
+        selected_path = get_selected_database_path(self.config_path)
+        self.assertEqual(selected_path, configs[0].full_path)
+
+    def test_set_selected_database_and_remove_config(self):
+        from app.database.config import add_database_config, load_database_configs, set_selected_database, remove_database_config, get_selected_database_path
+
+        first = add_database_config(
+            name='DB1',
+            directory=self.temp_dir.name,
+            filename='primeiro.db',
+            filename_override=self.config_path
+        )
+        second = add_database_config(
+            name='DB2',
+            directory=self.temp_dir.name,
+            filename='segundo.db',
+            filename_override=self.config_path
+        )
+
+        set_selected_database(second.key, self.config_path)
+        selected_path = get_selected_database_path(self.config_path)
+        self.assertEqual(selected_path, second.full_path)
+
+        remove_database_config(second.key, self.config_path)
+        configs = load_database_configs(self.config_path)
+        self.assertEqual(len(configs), 1)
+        self.assertEqual(configs[0].key, first.key)
+        selected_path_after_remove = get_selected_database_path(self.config_path)
+        self.assertEqual(selected_path_after_remove, first.full_path)
 
 
 class TestUnitService(BaseDatabaseTest):

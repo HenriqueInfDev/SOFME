@@ -8,6 +8,8 @@ import sys
 import threading
 import ctypes
 
+from app.database.config import get_selected_database_path
+
 class DatabaseManager:
     _instance = None
 
@@ -59,6 +61,16 @@ class DatabaseManager:
             except Exception:
                 pass
             return env_path
+
+        selected_db_path = get_selected_database_path()
+        if selected_db_path:
+            try:
+                os.makedirs(os.path.dirname(selected_db_path), exist_ok=True)
+            except Exception:
+                pass
+            logging.info(f"Using selected database path from configuration: {selected_db_path}")
+            return selected_db_path
+
         if frozen:
             executable_path = os.path.abspath(sys.executable)
             base_dir = os.path.dirname(executable_path)
