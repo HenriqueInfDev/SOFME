@@ -109,11 +109,11 @@ def login_input_style():
         QLineEdit {{
             background: {LOGIN_INPUT_BG};
             border: 1px solid {LOGIN_FIELD_BORDER};
-            border-radius: 7px;
-            padding: 10px 12px;
-            font-size: 14px;
+            border-radius: 0px;
+            padding: 6px 10px;
+            font-size: 12px;
             color: {LOGIN_TEXT};
-            min-height: 40px;
+            min-height: 30px;
         }}
         QLineEdit:focus {{
             border: 1px solid {LOGIN_ACCENT};

@@ -88,7 +88,7 @@ class LoginWindow(QWidget):
             QFrame#mainPanel {
                 background: #f7f7f7;
                 border: 1px solid #ebeff5;
-                border-radius: 12px;
+                border-radius: 0px;
             }
         ''')
         panel_layout = QVBoxLayout(main_panel)
@@ -272,19 +272,9 @@ class LoginWindow(QWidget):
         wrapper_h.addStretch(1)
         layout.addLayout(wrapper_h)
 
-        title = QLabel('Acesso ao sistema')
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet(login_title_style())
-        layout.addWidget(title)
-
-        subtitle = QLabel('Faça login para acessar sua conta')
-        subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet(login_subtitle_style())
-        layout.addWidget(subtitle)
-
-        self.current_db_label = QLabel('Banco de dados selecionado: ---')
+        self.current_db_label = QLabel('Base: ---')
         self.current_db_label.setStyleSheet(
-            'font-size: 12px; color: #475569; background: #e7edf5; border-radius: 6px; padding: 8px 10px;'
+            'font-size: 12px; color: #475569; background: #e7edf5; border-radius: 0px; padding: 8px 10px;'
         )
         self.current_db_label.setWordWrap(True)
         self.current_db_label.setAlignment(Qt.AlignCenter)
@@ -302,7 +292,7 @@ class LoginWindow(QWidget):
         self.login_input = QLineEdit()
         self.login_input.setStyleSheet(login_input_style())
         self.login_input.setPlaceholderText('Digite o usuário')
-        self.login_input.setFixedHeight(42)
+        self.login_input.setFixedHeight(34)
 
         login_icon = QLabel()
         self._set_icon_for_label(login_icon, self._icon_path('login_icon.ico'), 18)
@@ -323,7 +313,7 @@ class LoginWindow(QWidget):
         self.password_input = QLineEdit()
         self.password_input.setStyleSheet(login_input_style())
         self.password_input.setPlaceholderText('Digite a senha')
-        self.password_input.setFixedHeight(42)
+        self.password_input.setFixedHeight(34)
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.returnPressed.connect(self.handle_login)
 
@@ -502,9 +492,9 @@ class LoginWindow(QWidget):
 
     def update_current_db_label(self):
         if self.selected_database:
-            self.current_db_label.setText(f'Banco de dados selecionado: {self.selected_database.name}')
+            self.current_db_label.setText(f'Base: {self.selected_database.name}')
         else:
-            self.current_db_label.setText('Banco de dados selecionado: ---')
+            self.current_db_label.setText('Base: ---')
 
     def update_database_details(self):
         current_row = self.db_table.currentRow()
