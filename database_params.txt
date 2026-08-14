@@ -1,4 +1,7 @@
 db.1.directory=C:\Users\Henrique\Desktop\BASE SOFME
 db.1.filename=DADOS.DB
 db.1.name=BASE TESTE
-db.selected=1
+db.2.directory=C:\Users\Henrique\Desktop\BASE SOFME\HXTech
+db.2.filename=DADOS.DB
+db.2.name=BASE TESTE 2
+db.selected=2
