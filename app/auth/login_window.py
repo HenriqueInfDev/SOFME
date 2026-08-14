@@ -1,16 +1,24 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
+    QWidget, QVBoxLayout, QLineEdit, QPushButton,
     QLabel, QMessageBox, QHBoxLayout, QFrame, QApplication,
     QTabWidget, QTableWidget, QTableWidgetItem, QAbstractItemView,
     QCheckBox, QFileDialog, QDialog, QDialogButtonBox, QSizePolicy
 )
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtCore import QThread, Signal
 from app.auth.service import AuthService
 from app.utils.ui_utils import LoadingOverlay, show_warning_message, show_success_message, show_error_message
 from app.utils.local_settings import load_local_params, save_local_params
-from app.styles.windows_style import window_style, LIGHT
-from app.styles.input_styles import input_style, DEFAULTINPUT
+from app.styles.login_styles import (
+    login_window_style,
+    login_panel_style,
+    login_title_style,
+    login_subtitle_style,
+    login_field_label_style,
+    login_input_style,
+    login_button_style,
+)
 from app.styles.buttons_styles import button_style, BLUE, GREEN, RED
 from app.database.config import (
     load_database_configs,
@@ -29,147 +37,348 @@ class LoginWindow(QWidget):
         self.auth_service = None
         self.database_settings_file = 'database_params.txt'
         self.selected_database = None
+        self.password_visible = False
         self.setWindowTitle('Login - SOFME')
-        self.setGeometry(300, 200, 540, 420)
+        self.setGeometry(100, 100, 1200, 820)
         self.setWindowFlags(self.windowFlags() | Qt.Window)
         self.setObjectName('loginWindowRoot')
-        self.setStyleSheet(window_style(LIGHT) + " #loginWindowRoot { background-color: #d1d5db; }")
+        self.setStyleSheet(login_window_style())
         self.setup_ui()
 
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+    def _icon_path(self, relative_name):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_dir, 'images', 'icons', relative_name)
 
-        self.tab_widget = QTabWidget()
-        self.tab_widget.tabBar().setObjectName('loginTabBar')
-        self.tab_widget.tabBar().setExpanding(True)
-        self.tab_widget.tabBar().setDrawBase(False)
-        self.tab_widget.setStyleSheet('''
-            QTabBar#loginTabBar::tab {
-                background: #f8fafc;
-                border: 1px solid #d1d9e6;
-                border-bottom: none;
-                border-radius: 0px;
+    def _set_icon_for_label(self, label, icon_path, size=22):
+        if os.path.exists(icon_path):
+            pixmap = QPixmap(icon_path)
+            scaled = pixmap.scaled(QSize(size, size), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            label.setPixmap(scaled)
+            label.setAlignment(Qt.AlignCenter)
+            label.setStyleSheet('background: transparent;')
+        else:
+            label.setText('')
+
+    def _toggle_password_visibility(self):
+        self.password_visible = not self.password_visible
+        self.password_input.setEchoMode(QLineEdit.Normal if self.password_visible else QLineEdit.Password)
+        self.password_toggle_button.setIcon(QIcon(self._icon_path('visible_password_on.ico' if self.password_visible else 'visible_password_off.ico')))
+        self.password_toggle_button.setToolTip('Mostrar senha' if not self.password_visible else 'Ocultar senha')
+
+    def setup_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        main_layout.setAlignment(Qt.AlignCenter)
+
+        # Gray background container
+        gray_container = QFrame()
+        gray_container.setObjectName('grayContainer')
+        gray_container.setStyleSheet('QFrame#grayContainer { background: #dfe5eb; }')
+        gray_layout = QVBoxLayout(gray_container)
+        gray_layout.setContentsMargins(0, 0, 0, 0)
+        gray_layout.setSpacing(0)
+        gray_layout.setAlignment(Qt.AlignCenter)
+
+        # Main panel (white card)
+        main_panel = QFrame()
+        main_panel.setObjectName('mainPanel')
+        main_panel.setFixedWidth(440)
+        main_panel.setStyleSheet('''
+            QFrame#mainPanel {
+                background: #f7f7f7;
+                border: 1px solid #ebeff5;
+                border-radius: 12px;
+            }
+        ''')
+        panel_layout = QVBoxLayout(main_panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.setSpacing(0)
+
+        # Tab bar inside the panel
+        tab_bar_widget = QFrame()
+        tab_bar_widget.setObjectName('tabBarWidget')
+        tab_bar_widget.setStyleSheet('''
+            QFrame#tabBarWidget {
+                background: #f7f7f7;
+                border-bottom: 1px solid #ebeff5;
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+            }
+        ''')
+        tab_bar_widget.setFixedHeight(48)
+        tab_bar_layout = QHBoxLayout(tab_bar_widget)
+        tab_bar_layout.setContentsMargins(0, 0, 0, 0)
+        tab_bar_layout.setSpacing(0)
+
+        self.login_tab_button = QPushButton('Login')
+        self.login_tab_button.setObjectName('tabButton')
+        self.login_tab_button.clicked.connect(lambda: self.switch_tab(0))
+        self.login_tab_button.setStyleSheet('''
+            QPushButton#tabButton {
+                background: #f7f7f7;
+                border: none;
+                border-bottom: 2px solid #1f6fe5;
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 700;
                 padding: 12px 24px;
                 margin: 0;
             }
-            QTabBar#loginTabBar::tab:selected {
-                background: #ffffff;
-                color: #0f172a;
+        ''')
+
+        self.database_tab_button = QPushButton('Banco de Dados')
+        self.database_tab_button.setObjectName('tabButton')
+        self.database_tab_button.clicked.connect(lambda: self.switch_tab(1))
+        self.database_tab_button.setStyleSheet('''
+            QPushButton#tabButton {
+                background: #f7f7f7;
+                border: none;
+                border-bottom: 2px solid transparent;
+                color: #5a6e82;
+                font-size: 13px;
                 font-weight: 700;
-                border-bottom: 2px solid #2563eb;
-            }
-            QTabBar#loginTabBar::tab:!selected {
-                color: #475569;
-            }
-            QTabBar#loginTabBar::tab:hover {
-                background: #eff4ff;
-            }
-            QTabWidget::pane {
+                padding: 12px 24px;
                 margin: 0;
-                padding: 0;
+            }
+            QPushButton#tabButton:hover {
+                color: #0f172a;
             }
         ''')
-        self.tab_widget.addTab(self.create_login_tab(), 'Login')
-        self.tab_widget.addTab(self.create_database_tab(), 'Banco de Dados')
 
-        layout.addWidget(self.tab_widget)
-        self.setLayout(layout)
+        tab_bar_layout.addWidget(self.login_tab_button)
+        tab_bar_layout.addWidget(self.database_tab_button)
+        tab_bar_layout.addStretch(1)
+
+        panel_layout.addWidget(tab_bar_widget)
+
+        # Content container inside panel
+        self.content_container = QFrame()
+        self.content_container.setObjectName('contentContainer')
+        self.content_container.setStyleSheet('QFrame#contentContainer { background: #f7f7f7; }')
+        self.content_container_layout = QVBoxLayout(self.content_container)
+        self.content_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_container_layout.setSpacing(0)
+
+        # Create tab contents
+        self.login_tab = self.create_login_tab()
+        self.database_tab = self.create_database_tab()
+
+        self.content_container_layout.addWidget(self.login_tab, 1)
+
+        panel_layout.addWidget(self.content_container, 1)
+
+        # Add main panel to gray container
+        gray_layout.addWidget(main_panel, 0, Qt.AlignCenter)
+
+        main_layout.addWidget(gray_container, 1)
+        self.setLayout(main_layout)
         self.refresh_database_list()
+
+    def switch_tab(self, tab_index):
+        # Clear current content
+        while self.content_container_layout.count():
+            widget = self.content_container_layout.takeAt(0).widget()
+            if widget:
+                widget.setParent(None)
+
+        # Update button styles
+        if tab_index == 0:
+            self.login_tab_button.setStyleSheet('''
+                QPushButton#tabButton {
+                    background: #f7f7f7;
+                    border: none;
+                    border-bottom: 2px solid #1f6fe5;
+                    color: #0f172a;
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 12px 24px;
+                    margin: 0;
+                }
+            ''')
+            self.database_tab_button.setStyleSheet('''
+                QPushButton#tabButton {
+                    background: #f7f7f7;
+                    border: none;
+                    border-bottom: 2px solid transparent;
+                    color: #5a6e82;
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 12px 24px;
+                    margin: 0;
+                }
+                QPushButton#tabButton:hover {
+                    color: #0f172a;
+                }
+            ''')
+            self.content_container_layout.addWidget(self.login_tab, 1)
+        else:
+            self.database_tab_button.setStyleSheet('''
+                QPushButton#tabButton {
+                    background: #f7f7f7;
+                    border: none;
+                    border-bottom: 2px solid #1f6fe5;
+                    color: #0f172a;
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 12px 24px;
+                    margin: 0;
+                }
+            ''')
+            self.login_tab_button.setStyleSheet('''
+                QPushButton#tabButton {
+                    background: #f7f7f7;
+                    border: none;
+                    border-bottom: 2px solid transparent;
+                    color: #5a6e82;
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 12px 24px;
+                    margin: 0;
+                }
+                QPushButton#tabButton:hover {
+                    color: #0f172a;
+                }
+            ''')
+            self.content_container_layout.addWidget(self.database_tab, 1)
 
     def create_login_tab(self):
         tab = QWidget()
+        tab.setObjectName('loginTabPage')
+        tab.setStyleSheet('QWidget#loginTabPage { background: #f7f7f7; }')
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(16)
 
-        panel = QFrame()
-        panel.setObjectName('loginPanel')
-        panel.setStyleSheet('#loginPanel { background: white; border-radius: 8px; padding: 18px; }')
-        panel.setFixedWidth(420)
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(12, 12, 12, 12)
-        panel_layout.setSpacing(12)
+        icon_wrapper = QFrame()
+        icon_wrapper.setFixedSize(88, 88)
+        icon_wrapper.setStyleSheet('''
+            QFrame {
+                background: #eaf1ff;
+                border-radius: 44px;
+            }
+        ''')
+        icon_wrapper_layout = QVBoxLayout(icon_wrapper)
+        icon_wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        icon_wrapper_layout.setAlignment(Qt.AlignCenter)
+
+        logo_icon = QLabel()
+        self._set_icon_for_label(logo_icon, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'images', 'system_logo.ico'), 52)
+        icon_wrapper_layout.addWidget(logo_icon)
+
+        wrapper_h = QHBoxLayout()
+        wrapper_h.addStretch(1)
+        wrapper_h.addWidget(icon_wrapper)
+        wrapper_h.addStretch(1)
+        layout.addLayout(wrapper_h)
 
         title = QLabel('Acesso ao sistema')
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet('font-size: 22px; font-weight: 700; color: #0F172A;')
-        panel_layout.addWidget(title)
+        title.setStyleSheet(login_title_style())
+        layout.addWidget(title)
+
+        subtitle = QLabel('Faça login para acessar sua conta')
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setStyleSheet(login_subtitle_style())
+        layout.addWidget(subtitle)
 
         self.current_db_label = QLabel('Banco de dados selecionado: ---')
-        self.current_db_label.setStyleSheet('font-size: 13px; color: #475569;')
+        self.current_db_label.setStyleSheet(
+            'font-size: 12px; color: #475569; background: #e7edf5; border-radius: 6px; padding: 8px 10px;'
+        )
         self.current_db_label.setWordWrap(True)
-        panel_layout.addWidget(self.current_db_label)
+        self.current_db_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.current_db_label)
 
-        form = QFormLayout()
-        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        form.setHorizontalSpacing(12)
+        form_layout = QVBoxLayout()
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(8)
+
+        login_label = QLabel('Login')
+        login_label.setStyleSheet(login_field_label_style())
+        login_label.setAlignment(Qt.AlignLeft)
+        form_layout.addWidget(login_label)
 
         self.login_input = QLineEdit()
-        self.login_input.setStyleSheet(input_style(DEFAULTINPUT))
-        self.login_input.setPlaceholderText('Digite o login')
-        self.login_input.setFixedHeight(36)
+        self.login_input.setStyleSheet(login_input_style())
+        self.login_input.setPlaceholderText('Digite o usuário')
+        self.login_input.setFixedHeight(42)
 
-        try:
-            params = load_local_params()
-            last_login = params.get('auth.last_login')
-            if last_login:
-                self.login_input.setText(last_login)
-        except Exception:
-            pass
+        login_icon = QLabel()
+        self._set_icon_for_label(login_icon, self._icon_path('login_icon.ico'), 18)
+        login_wrapper = QHBoxLayout()
+        login_wrapper.setContentsMargins(0, 0, 0, 0)
+        login_wrapper.setSpacing(8)
+        login_wrapper.addWidget(login_icon)
+        login_wrapper.addWidget(self.login_input)
+        form_layout.addLayout(login_wrapper)
+
+        form_layout.addSpacing(6)
+
+        senha_label = QLabel('Senha')
+        senha_label.setStyleSheet(login_field_label_style())
+        senha_label.setAlignment(Qt.AlignLeft)
+        form_layout.addWidget(senha_label)
 
         self.password_input = QLineEdit()
-        self.password_input.setStyleSheet(input_style(DEFAULTINPUT))
+        self.password_input.setStyleSheet(login_input_style())
         self.password_input.setPlaceholderText('Digite a senha')
-        self.password_input.setFixedHeight(36)
+        self.password_input.setFixedHeight(42)
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.returnPressed.connect(self.handle_login)
 
-        login_label = QLabel('Login')
-        login_label.setStyleSheet('font-weight: 700; color: #0F172A; font-size: 15px;')
-        login_label.setFixedHeight(36)
-        login_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        password_icon = QLabel()
+        self._set_icon_for_label(password_icon, self._icon_path('password_ico.ico'), 18)
+        self.password_toggle_button = QPushButton()
+        self.password_toggle_button.setIcon(QIcon(self._icon_path('visible_password_off.ico')))
+        self.password_toggle_button.setIconSize(QSize(18, 18))
+        self.password_toggle_button.setFixedSize(26, 26)
+        self.password_toggle_button.setFlat(True)
+        self.password_toggle_button.setCursor(Qt.PointingHandCursor)
+        self.password_toggle_button.setToolTip('Mostrar senha')
+        self.password_toggle_button.clicked.connect(self._toggle_password_visibility)
+        self.password_toggle_button.setStyleSheet('''
+            QPushButton {
+                background: transparent;
+                border: none;
+                padding: 0;
+            }
+        ''')
 
-        senha_label = QLabel('Senha')
-        senha_label.setStyleSheet('font-weight: 700; color: #0F172A; font-size: 15px;')
-        senha_label.setFixedHeight(36)
-        senha_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        password_wrapper = QHBoxLayout()
+        password_wrapper.setContentsMargins(0, 0, 0, 0)
+        password_wrapper.setSpacing(8)
+        password_wrapper.addWidget(password_icon)
+        password_wrapper.addWidget(self.password_input)
+        password_wrapper.addWidget(self.password_toggle_button)
+        form_layout.addLayout(password_wrapper)
 
-        form.setVerticalSpacing(16)
-        form.addRow(login_label, self.login_input)
-        form.addRow(senha_label, self.password_input)
-        panel_layout.addLayout(form)
+        layout.addLayout(form_layout)
 
-        self.login_button = QPushButton('Entrar')
-        self.login_button.setStyleSheet(button_style(BLUE))
+        self.login_button = QPushButton('↳ Entrar')
+        self.login_button.setStyleSheet(login_button_style())
         self.login_button.clicked.connect(self.handle_login)
-        self.login_button.setFixedHeight(40)
+        self.login_button.setFixedHeight(46)
         self.login_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        panel_layout.addWidget(self.login_button)
+        layout.addWidget(self.login_button)
 
-        layout.addStretch(1)
-        wrapper = QHBoxLayout()
-        wrapper.addStretch(1)
-        wrapper.addWidget(panel)
-        wrapper.addStretch(1)
-        layout.addLayout(wrapper)
         layout.addStretch(1)
 
         return tab
 
     def create_database_tab(self):
         tab = QWidget()
+        tab.setStyleSheet('background-color: #f7f7f7;')
         layout = QVBoxLayout(tab)
         layout.setSpacing(12)
-        layout.setContentsMargins(14, 14, 14, 0)
+        layout.setContentsMargins(24, 20, 24, 20)
 
         title = QLabel('Selecionar Base de Dados')
         title.setStyleSheet('font-size: 16px; font-weight: 700; color: #0F172A;')
         layout.addWidget(title)
 
-        self.db_table = QTableWidget(0, 3)
-        self.db_table.setHorizontalHeaderLabels(['Descrição', 'Pasta', 'Caminho da Base'])
+        self.db_table = QTableWidget(0, 1)
+        self.db_table.setHorizontalHeaderLabels(['Descrição'])
         self.db_table.verticalHeader().setVisible(False)
         self.db_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.db_table.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -185,6 +394,7 @@ class LoginWindow(QWidget):
         )
         self.db_table.horizontalHeader().setStretchLastSection(True)
         self.db_table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft)
+        self.db_table.setColumnWidth(0, 250)
         self.db_table.horizontalHeader().setStyleSheet(
             'QHeaderView::section { background: #eef2ff; border: 1px solid #d1d9e6; padding: 10px; font-weight: 700; }'
         )
@@ -279,14 +489,7 @@ class LoginWindow(QWidget):
             description_item = QTableWidgetItem(database.name)
             description_item.setData(Qt.UserRole, database)
             description_item.setFlags(description_item.flags() & ~Qt.ItemIsEditable)
-            directory_item = QTableWidgetItem(database.directory)
-            directory_item.setFlags(directory_item.flags() & ~Qt.ItemIsEditable)
-            path_item = QTableWidgetItem(database.full_path)
-            path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
-
             self.db_table.setItem(row, 0, description_item)
-            self.db_table.setItem(row, 1, directory_item)
-            self.db_table.setItem(row, 2, path_item)
 
             if self.selected_database and database.key == self.selected_database.key:
                 self.db_table.selectRow(row)
@@ -299,9 +502,7 @@ class LoginWindow(QWidget):
 
     def update_current_db_label(self):
         if self.selected_database:
-            self.current_db_label.setText(
-                f'Banco de dados selecionado: {self.selected_database.name} ({self.selected_database.full_path})'
-            )
+            self.current_db_label.setText(f'Banco de dados selecionado: {self.selected_database.name}')
         else:
             self.current_db_label.setText('Banco de dados selecionado: ---')
 
