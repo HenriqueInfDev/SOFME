@@ -1,0 +1,32 @@
+# Cores principais do SOFME
+PRIMARY_BLUE = '#2563EB'
+DARK_BLUE = '#1E3A8A'
+SECONDARY_BLUE = '#3B82F6'
+WHITE = '#FFFFFF'
+
+# Cores de texto
+TEXT_DARK = '#0F172A'
+TEXT_SECONDARY = '#64748B'
+TEXT_PLACEHOLDER = '#94A3B8'
+
+# Cores de fundos
+BG_LIGHT_BLUE = '#F5F8FF'
+BG_CARD = '#FFFFFF'
+BG_INPUT = '#F8FAFC'
+
+# Cores de ações
+SUCCESS_GREEN = '#16A34A'
+ERROR_RED = '#EF4444'
+WARNING_ORANGE = '#F59E0B'
+
+# Estilos de bordas
+BORDER_LIGHT = '#E2E8F0'
+BORDER_INPUT = '#CBD5E1'
+
+# Sombras
+SHADOW_CARD = 'rgba(15, 23, 42, 0.08)'
+SHADOW_BUTTON = 'rgba(15, 23, 42, 0.12)'
+
+# Tamanhos
+RADIUS_CARD = 14
+RADIUS_INPUT = 10
