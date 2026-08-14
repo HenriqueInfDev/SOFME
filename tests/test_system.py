@@ -228,6 +228,54 @@ class TestItemService(BaseDatabaseTest):
         self.assertEqual(item['SALDO_ESTOQUE'], 30)
         self.assertAlmostEqual(item['CUSTO_MEDIO'], 170 / 30, places=6)
 
+    def test_recalculate_average_keeps_existing_balance_and_cost(self):
+        """Recalcular não deve alterar o custo médio quando não há novos movimentos."""
+        unit_service = UnitService()
+        item_service = ItemService()
+        unit_id = unit_service.add_unit('Recalc Unit', 'RU')['data']
+        item_id = item_service.add_item('codR', 'Recalc Item', 'Insumo', unit_id, None)['data']
+
+        # Entrada manual: 10 un a R$ 5,00
+        item_service.manual_input_material(item_id, 10, 50)
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 10)
+        self.assertEqual(item['CUSTO_MEDIO'], 5)
+
+        # Recalcular deve manter saldo e custo médio
+        resp = item_service.recalculate_average_from_movements(item_id)
+        self.assertTrue(resp['success'])
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 10)
+        self.assertAlmostEqual(item['CUSTO_MEDIO'], 5, places=6)
+
+    def test_recalculate_average_after_entry_keeps_incremental_cost(self):
+        """Recalcular após uma entrada deve preservar o custo médio incremental.
+
+        Reproduz o bug relatado: saldo inicial de 10 un a R$ 5,00 + entrada de
+        10 un a R$ 10,00. O custo médio correto é (10*5 + 10*10)/20 = 7,50.
+        O recálculo antigo retornava 10,00 (ignorava o saldo anterior).
+        """
+        unit_service = UnitService()
+        item_service = ItemService()
+        unit_id = unit_service.add_unit('Recalc Unit 2', 'RU')['data']
+        item_id = item_service.add_item('codR2', 'Recalc Item 2', 'Insumo', unit_id, None)['data']
+
+        # Saldo inicial: 10 un a R$ 5,00
+        item_service.manual_input_material(item_id, 10, 50)
+        # Entrada: 10 un a R$ 10,00
+        item_service.manual_input_material(item_id, 10, 100)
+
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 20)
+        self.assertAlmostEqual(item['CUSTO_MEDIO'], 7.5, places=6)
+
+        # Recalcular deve preservar o custo médio incremental
+        resp = item_service.recalculate_average_from_movements(item_id)
+        self.assertTrue(resp['success'])
+        item = item_service.get_item_by_id(item_id)['data']
+        self.assertEqual(item['SALDO_ESTOQUE'], 20)
+        self.assertAlmostEqual(item['CUSTO_MEDIO'], 7.5, places=6)
+
 
 class TestSupplierService(BaseDatabaseTest):
     def test_add_supplier_allows_blank_cnpj(self):
