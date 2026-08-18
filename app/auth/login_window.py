@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLineEdit, QPushButton,
+    QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
     QLabel, QMessageBox, QHBoxLayout, QFrame, QApplication,
     QTabWidget, QTableWidget, QTableWidgetItem, QAbstractItemView,
     QCheckBox, QFileDialog, QDialog, QDialogButtonBox, QSizePolicy
@@ -406,6 +406,12 @@ class LoginWindow(QWidget):
         self.new_button.setFixedHeight(38)
         self.new_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
+        self.edit_button = QPushButton('Editar')
+        self.edit_button.setStyleSheet(button_style(BLUE))
+        self.edit_button.clicked.connect(self.handle_new_database)
+        self.edit_button.setFixedHeight(38)
+        self.edit_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
         self.delete_button = QPushButton('Excluir')
         self.delete_button.setStyleSheet(button_style(RED))
         self.delete_button.clicked.connect(self.handle_remove_database)
@@ -415,6 +421,7 @@ class LoginWindow(QWidget):
 
         action_layout.addWidget(self.select_button)
         action_layout.addWidget(self.new_button)
+        action_layout.addWidget(self.edit_button)
         action_layout.addWidget(self.delete_button)
         action_layout.addStretch(1)
 
