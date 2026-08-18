@@ -116,60 +116,23 @@ class ItemRepository:
         return [dict(row) for row in cursor.fetchall()]
 
     def compute_average_from_movements(self, item_id):
-        """Recalculates the weighted average unit cost of an item.
-
-        The current balance and current average cost of the item are used as the
-        starting point, then each stock movement is applied in chronological order
-        using the incremental weighted-average formula:
-
-            new_avg = (old_balance * old_avg + qty * unit_value) / (old_balance + qty)
-
-        Positive movements (entries) increase the balance and blend the cost.
-        Negative movements (reversals/estornos) decrease the balance; if the
-        balance reaches zero the average cost is reset to zero.
-
-        Returns (average_cost, total_quantity) where average_cost is 0 if the
-        resulting balance is zero or no suitable movements were found.
+        """
+        Recalculates the weighted average unit cost of an item based SOLELY on entry movements (TIPO_MOVIMENTO = 'entrada').
         """
         item = self.get_by_id(item_id)
         if not item:
             return 0.0, 0.0
-
-        balance = float(item.get('SALDO_ESTOQUE') or 0)
-        avg_cost = float(item.get('CUSTO_MEDIO') or 0)
-
-        movements = self.get_movements(item_id)
-        for m in movements:
-            q = m.get('QUANTIDADE')
-            val = m.get('VALOR_UNITARIO')
-            try:
-                qf = float(q)
-            except (TypeError, ValueError):
-                continue
-            if qf == 0:
-                continue
-
-            if qf > 0:
-                # Entrada: mistura o custo do novo lote com o custo médio atual
-                if val is None:
-                    continue
-                try:
-                    vf = float(val)
-                except (TypeError, ValueError):
-                    continue
-                new_balance = balance + qf
-                if new_balance > 0:
-                    avg_cost = ((balance * avg_cost) + (qf * vf)) / new_balance
-                balance = new_balance
-            else:
-                # Estorno/saída: reduz o saldo mantendo o custo médio
-                new_balance = balance + qf
-                if new_balance <= 0:
-                    balance = 0.0
-                    avg_cost = 0.0
-                else:
-                    balance = new_balance
-
-        if balance > 0:
-            return avg_cost, balance
-        return 0.0, 0.0
+        
+        cursor = self.connection.cursor()
+        cursor.execute("""
+            SELECT SUM(QUANTIDADE * VALOR_UNITARIO) / SUM(QUANTIDADE)
+            FROM MOVIMENTO
+            WHERE ID_ITEM = ?
+              AND TIPO_MOVIMENTO = 'entrada'
+        """, (item_id,))
+        
+        result = cursor.fetchone()
+        if result and result[0] is not None:
+            return result[0], item.get('SALDO_ESTOQUE', 0) or 0.0
+        
+        return 0.0, item.get('SALDO_ESTOQUE', 0) or 0.0

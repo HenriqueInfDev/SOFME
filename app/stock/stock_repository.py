@@ -121,8 +121,8 @@ class StockRepository:
                     current_item = cursor.execute("SELECT SALDO_ESTOQUE, CUSTO_MEDIO FROM ITEM WHERE ID = ?", (insumo_id,)).fetchone()
                     old_balance, old_avg_cost = current_item['SALDO_ESTOQUE'], current_item['CUSTO_MEDIO']
                     new_balance = old_balance + quantity
-                    new_avg_cost = ((old_balance * old_avg_cost) + (quantity * unit_cost)) / new_balance if new_balance > 0 else 0
-                    cursor.execute("UPDATE ITEM SET SALDO_ESTOQUE = ?, CUSTO_MEDIO = ? WHERE ID = ?", (new_balance, new_avg_cost, insumo_id))
+                    # Calculate average unit price directly from ENTRADA_ITENS
+                    cursor.execute("""UPDATE ITEM SET SALDO_ESTOQUE = ?, CUSTO_MEDIO = (SELECT AVG(VALOR_UNITARIO) FROM ENTRADA_ITENS WHERE ID_INSUMO = ?) WHERE ID = ?""", (new_balance, insumo_id, insumo_id))
                     cursor.execute(
                         "INSERT INTO MOVIMENTO (ID_ITEM, TIPO_MOVIMENTO, QUANTIDADE, VALOR_UNITARIO, DATA_MOVIMENTO) VALUES (?, 'Entrada por Nota', ?, ?, ?)",
                         (insumo_id, quantity, unit_cost, details['master']['DATA_ENTRADA'])

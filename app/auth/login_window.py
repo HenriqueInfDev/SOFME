@@ -102,8 +102,6 @@ class LoginWindow(QWidget):
             QFrame#tabBarWidget {
                 background: #f7f7f7;
                 border-bottom: 1px solid #ebeff5;
-                border-top-left-radius: 12px;
-                border-top-right-radius: 12px;
             }
         ''')
         tab_bar_widget.setFixedHeight(48)
@@ -345,7 +343,7 @@ class LoginWindow(QWidget):
 
         layout.addLayout(form_layout)
 
-        self.login_button = QPushButton('↳ Entrar')
+        self.login_button = QPushButton('Entrar')
         self.login_button.setStyleSheet(login_button_style())
         self.login_button.clicked.connect(self.handle_login)
         self.login_button.setFixedHeight(46)
